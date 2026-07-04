@@ -1,26 +1,180 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-success: var(--success);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ==========================================================================
+   WatchList theme — TODAS as cores vivem aqui (regra: nada hardcoded em tela).
+   App dark-only. --bg-deep deve bater com THEME_COLOR em lib/config.ts.
+   ========================================================================== */
+:root {
+  /* brand palette */
+  --bg-deep: #0c111b;
+  --surface: #151c2c;
+  --surface-2: #1e2739;
+  --line: rgba(255, 255, 255, 0.08);
+  --text: #f2f5f9;
+  --text-dim: #8a94a6;
+  --brand: #f5c518;
+  --brand-ink: #0c111b;
+  --ok: #34d399;
+  --bad: #f87171;
+  --tabs-bg: rgba(18, 24, 38, 0.94);
+
+  /* shadcn/tailwind mapping */
+  --background: var(--bg-deep);
+  --foreground: var(--text);
+  --card: var(--surface);
+  --card-foreground: var(--text);
+  --popover: var(--surface-2);
+  --popover-foreground: var(--text);
+  --primary: var(--brand);
+  --primary-foreground: var(--brand-ink);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--text);
+  --muted: var(--surface-2);
+  --muted-foreground: var(--text-dim);
+  --accent: var(--surface-2);
+  --accent-foreground: var(--text);
+  --destructive: var(--bad);
+  --success: var(--ok);
+  --border: var(--line);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: var(--brand);
+  --radius: 0.75rem;
+}
+
+/* ==========================================================================
+   Receita Melhores Práticas v3 — iOS PWA (bottom nav estável)
+   - body: min-height 100vh (NUNCA height fixo, NUNCA 100dvh, SEM overflow
+     hidden, SEM flex, SEM max-width)
+   - tudo que é fixed (.tabs, .fab, modais) = filho direto do <body>
+   - max-width SÓ no conteúdo (#app)
+   z-index: toast 200 · modal-overlay 130 · modal 120 · FAB 90 · tabs 80 · topbar 50
+   ========================================================================== */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    overflow-x: hidden;
+    touch-action: manipulation;
+    -webkit-text-size-adjust: 100%;
+    @apply font-sans;
+  }
+  body {
+    min-height: 100vh;
+    margin: 0;
+    overflow-x: hidden;
+    @apply bg-background text-foreground;
   }
 }
 
-body {
+#app {
+  max-width: 430px;
+  margin: 0 auto;
   background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* SEM position, SEM height, SEM overflow, SEM transform */
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--bg-deep);
+  padding: calc(14px + env(safe-area-inset-top)) 16px 12px;
+}
+
+.content {
+  padding: 0 16px;
+  padding-bottom: calc(72px + env(safe-area-inset-bottom) + 20px);
+  /* SEM overflow-y, SEM flex:1 — rola com o body naturalmente */
+}
+
+/* NAV: filha direta do body, ancora na janela física */
+.tabs {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 80;
+  padding-bottom: env(safe-area-inset-bottom); /* safe-area UMA vez só */
+  background: var(--tabs-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid var(--line);
+  display: flex;
+}
+
+.tab {
+  flex: 1;
+  padding: 10px 4px; /* a altura da nav nasce daqui */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.tab[data-active="true"] {
+  color: var(--brand);
+}
+
+/* Desktop: centraliza com translateX, NUNCA com margin:auto */
+@media (min-width: 431px) {
+  .tabs {
+    left: 50%;
+    right: auto;
+    width: 430px;
+    transform: translateX(-50%);
+  }
+}
+
+/* Esconde scrollbar das fileiras horizontais de pôsteres */
+.hscroll {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -16px;
+  padding: 0 16px;
+}
+.hscroll::-webkit-scrollbar {
+  display: none;
 }
