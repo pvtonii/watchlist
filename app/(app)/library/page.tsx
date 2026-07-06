@@ -17,12 +17,12 @@ import {
 import {
   ENDED_TV_STATUSES,
   LIBRARY_STATUSES,
-  SHOW_PROGRESS_COLORS,
+  showProgressColor,
   STATUS_LABELS,
   tmdbPoster,
   type LibraryStatus,
 } from "@/lib/config";
-import { fmtDateTime, fmtMonthYear } from "@/lib/format";
+import { fmtDateTime, fmtMonthYear, fmtYearRange } from "@/lib/format";
 import type { MovieDetails, TvDetails } from "@/lib/tmdb-types";
 
 const MEDIA_TYPES = ["tv", "movie"] as const;
@@ -65,6 +65,22 @@ export default function LibraryPage() {
       ),
     [library, tab, mediaType]
   );
+
+  const countsByStatus = useMemo(() => {
+    const map: Record<StatusFilter, number> = {
+      all: 0,
+      watchlist: 0,
+      watching: 0,
+      completed: 0,
+      dropped: 0,
+    };
+    for (const i of library ?? []) {
+      if (i.media_type !== mediaType) continue;
+      map.all += 1;
+      map[i.status] += 1;
+    }
+    return map;
+  }, [library, mediaType]);
   const tvIds = items
     .filter((i) => i.media_type === "tv")
     .map((i) => i.tmdb_id);
@@ -117,6 +133,7 @@ export default function LibraryPage() {
               }`}
             >
               {TAB_LABELS[status]}
+              <span className="ml-1.5 opacity-70">{countsByStatus[status]}</span>
             </button>
           ))}
         </div>
@@ -151,20 +168,20 @@ export default function LibraryPage() {
                   .reduce((sum, s) => sum + s.episode_count, 0)
               : 0;
             const seen = counts.get(item.tmdb_id) ?? 0;
-
-            let barColor: string | undefined;
-            if (item.media_type === "tv") {
-              if (item.status === "dropped") {
-                barColor = SHOW_PROGRESS_COLORS.dropped;
-              } else if (item.status === "watching" || item.status === "completed") {
-                const ended = details
-                  ? ENDED_TV_STATUSES.includes(details.status)
-                  : false;
-                barColor = ended
-                  ? SHOW_PROGRESS_COLORS.ended
-                  : SHOW_PROGRESS_COLORS.continuing;
-              }
-            }
+            const ended = details
+              ? ENDED_TV_STATUSES.includes(details.status)
+              : false;
+            const barColor =
+              item.media_type === "tv"
+                ? showProgressColor(item.status, details?.status)
+                : undefined;
+            const dateLabel = details
+              ? fmtYearRange(
+                  details.first_air_date,
+                  ended,
+                  details.last_episode_to_air?.air_date
+                )
+              : fmtMonthYear(item.release_date);
 
             return (
               <Link
@@ -190,9 +207,7 @@ export default function LibraryPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold">{item.title}</p>
                   <p className="text-xs text-muted-foreground">
-                    {[genre, fmtMonthYear(item.release_date)]
-                      .filter(Boolean)
-                      .join(" · ")}
+                    {[genre, dateLabel].filter(Boolean).join(" · ")}
                   </p>
                   {item.status === "completed" && (
                     <p className="text-[11px] text-primary">

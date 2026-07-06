@@ -17,7 +17,12 @@ import {
   watchedCountBySeason,
 } from "@/lib/hooks";
 import { fmtDate } from "@/lib/format";
-import { LIBRARY_STATUSES, STATUS_LABELS, type LibraryStatus } from "@/lib/config";
+import {
+  LIBRARY_STATUSES,
+  STATUS_LABELS,
+  showProgressColor,
+  type LibraryStatus,
+} from "@/lib/config";
 import { seasonEpisodeLabel } from "@/lib/format";
 import type { TvDetails } from "@/lib/tmdb-types";
 
@@ -40,6 +45,7 @@ export default function TvPage({
   );
   const busy = setStatus.isPending || removeItem.isPending;
   const seasonCounts = watchedCountBySeason(watched, showId);
+  const barColor = showProgressColor(item?.status, show?.status);
 
   function toggle(status: LibraryStatus) {
     if (!show) return;
@@ -124,7 +130,11 @@ export default function TvPage({
                     {totalWatched}/{totalEpisodes} episodes
                   </span>
                 </div>
-                <ProgressBar value={totalWatched} max={totalEpisodes} />
+                <ProgressBar
+                  value={totalWatched}
+                  max={totalEpisodes}
+                  color={barColor}
+                />
               </div>
             )}
 
@@ -164,7 +174,11 @@ export default function TvPage({
                         <p className="mb-1.5 text-xs text-muted-foreground">
                           {seen}/{season.episode_count} watched
                         </p>
-                        <ProgressBar value={seen} max={season.episode_count} />
+                        <ProgressBar
+                          value={seen}
+                          max={season.episode_count}
+                          color={barColor}
+                        />
                       </div>
                       <ChevronRight
                         size={18}

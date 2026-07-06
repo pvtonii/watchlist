@@ -5,7 +5,7 @@
  * (data real da entrega). O footer lê daqui automaticamente.
  */
 export const APP_NAME = "WatchList";
-export const APP_VERSION = "1.2.0";
+export const APP_VERSION = "1.3.0";
 export const APP_RELEASE_DATE = "2026-07-06";
 
 /** Must match the topbar/background color in globals.css (--bg-deep). */
@@ -46,6 +46,19 @@ export const SHOW_PROGRESS_COLORS = {
 
 /** TMDB `TvDetails.status` values that mean the show won't get new episodes. */
 export const ENDED_TV_STATUSES = ["Ended", "Canceled"];
+
+/** Progress bar color for a show, based on your library status + its air status. */
+export function showProgressColor(
+  libraryStatus: LibraryStatus | undefined,
+  tvStatus: string | undefined
+): string | undefined {
+  if (libraryStatus === "dropped") return SHOW_PROGRESS_COLORS.dropped;
+  if (libraryStatus === "watching" || libraryStatus === "completed") {
+    const ended = tvStatus ? ENDED_TV_STATUSES.includes(tvStatus) : false;
+    return ended ? SHOW_PROGRESS_COLORS.ended : SHOW_PROGRESS_COLORS.continuing;
+  }
+  return undefined;
+}
 
 /* ---------------- TMDB image helpers ---------------- */
 const TMDB_IMG_BASE = "https://image.tmdb.org/t/p";

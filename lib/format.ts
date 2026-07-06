@@ -30,6 +30,22 @@ export function fmtMonthYear(date: string | null | undefined): string {
   return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
 }
 
+/**
+ * TV show year range for library cards, e.g. "2019 - Present" (still airing)
+ * or "2016 - 2022" (ended). Falls back to a single year when start === end.
+ */
+export function fmtYearRange(
+  firstAirDate: string | null | undefined,
+  ended: boolean,
+  lastAirDate: string | null | undefined
+): string {
+  const start = firstAirDate?.slice(0, 4);
+  if (!start) return "";
+  if (!ended) return `${start} - Present`;
+  const end = lastAirDate?.slice(0, 4);
+  return end && end !== start ? `${start} - ${end}` : start;
+}
+
 /** ISO timestamp (e.g. "2026-07-10T14:32:00Z") → "Jul 10, 2026". */
 export function fmtDateTime(timestamp: string | null | undefined): string {
   if (!timestamp) return "TBA";
