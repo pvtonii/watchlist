@@ -122,6 +122,7 @@ export default function SearchPage() {
                 itemYear(r) ? ` · ${itemYear(r)}` : ""
               }`}
               inLibrary={libraryKeys.has(`${r.media_type}-${r.id}`)}
+              rating={r.vote_average}
             />
           ))}
         </div>

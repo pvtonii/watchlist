@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Film, Check } from "lucide-react";
+import { Film, Check, Star } from "lucide-react";
 import { tmdbPoster } from "@/lib/config";
 import type { MediaType } from "@/lib/tmdb-types";
 
@@ -14,6 +14,7 @@ export default function PosterCard({
   sub,
   width,
   inLibrary,
+  rating,
 }: {
   id: number;
   mediaType: MediaType;
@@ -24,6 +25,8 @@ export default function PosterCard({
   width?: number;
   /** Shows a checkmark badge — already in the user's library. */
   inLibrary?: boolean;
+  /** TMDB vote_average (0-10) — shown as a community rating badge. */
+  rating?: number;
 }) {
   const poster = tmdbPoster(posterPath);
 
@@ -53,6 +56,14 @@ export default function PosterCard({
             className="absolute right-1.5 top-1.5 rounded-full bg-primary p-1 text-primary-foreground shadow"
           >
             <Check size={12} strokeWidth={3} />
+          </div>
+        )}
+        {typeof rating === "number" && rating > 0 && (
+          <div className="absolute bottom-1.5 left-1.5 flex items-center gap-0.5 rounded-full bg-black/70 px-1.5 py-0.5 text-white shadow">
+            <Star size={10} className="fill-yellow-400 text-yellow-400" />
+            <span className="text-[10px] font-bold leading-none">
+              {rating.toFixed(1)}
+            </span>
           </div>
         )}
       </div>

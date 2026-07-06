@@ -237,6 +237,7 @@ export default function HomePage() {
                   posterPath={m.poster_path}
                   sub={fmtDate(m.release_date)}
                   width={108}
+                  rating={m.vote_average}
                 />
               ))}
             </div>
