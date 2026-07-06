@@ -21,14 +21,25 @@ import {
 } from "@/lib/config";
 import type { TvDetails } from "@/lib/tmdb-types";
 
+const MEDIA_TYPES = ["tv", "movie"] as const;
+type MediaTypeFilter = (typeof MEDIA_TYPES)[number];
+const MEDIA_TYPE_LABELS: Record<MediaTypeFilter, string> = {
+  tv: "TV Shows",
+  movie: "Movies",
+};
+
 export default function LibraryPage() {
   const [tab, setTab] = useState<LibraryStatus>("watching");
+  const [mediaType, setMediaType] = useState<MediaTypeFilter>("tv");
   const { data: library, isLoading } = useLibrary();
   const { data: watched } = useWatchedEpisodes();
 
   const items = useMemo(
-    () => (library ?? []).filter((i) => i.status === tab),
-    [library, tab]
+    () =>
+      (library ?? []).filter(
+        (i) => i.status === tab && i.media_type === mediaType
+      ),
+    [library, tab, mediaType]
   );
   const tvIds = items
     .filter((i) => i.media_type === "tv")
@@ -44,6 +55,23 @@ export default function LibraryPage() {
     <>
       <Topbar title="My List" />
       <main className="content pt-1">
+        {/* toggle TV Shows / Movies */}
+        <div className="mb-3 grid grid-cols-2 gap-2 rounded-full bg-secondary p-1">
+          {MEDIA_TYPES.map((type) => (
+            <button
+              key={type}
+              onClick={() => setMediaType(type)}
+              className={`rounded-full py-1.5 text-xs font-bold transition-colors ${
+                mediaType === type
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground"
+              }`}
+            >
+              {MEDIA_TYPE_LABELS[type]}
+            </button>
+          ))}
+        </div>
+
         {/* tabs por status */}
         <div className="mb-4 flex gap-2 overflow-x-auto">
           {LIBRARY_STATUSES.map((status) => (
@@ -67,7 +95,7 @@ export default function LibraryPage() {
           <div className="mt-12 flex flex-col items-center gap-2 text-muted-foreground">
             <Clapperboard size={28} />
             <p className="text-sm">
-              Nothing in “{STATUS_LABELS[tab]}” yet.
+              Nothing in “{STATUS_LABELS[tab]}” for {MEDIA_TYPE_LABELS[mediaType]} yet.
             </p>
             <Link href="/search" className="text-sm font-bold text-primary">
               Find something to watch
