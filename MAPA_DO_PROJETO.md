@@ -34,6 +34,7 @@
 | Bottom nav (fixa, filha direta do body — NÃO mover pra dentro do #app) | `components/bottom-nav.tsx` |
 | Topbar (sticky, com botão voltar) | `components/topbar.tsx` |
 | Card de pôster (busca/home) | `components/poster-card.tsx` |
+| Card grande com barra de progresso na borda (Home > Up Next) | `components/show-progress-card.tsx` |
 | Barra de progresso | `components/progress-bar.tsx` |
 | Botão "Update App" anti-cache | `components/refresh-button.tsx` |
 | Header de detalhe (pôster + infos) | `components/detail-header.tsx` |
@@ -76,6 +77,11 @@
 - Cor da barra de progresso (My List + tela da série): roxo `#9900FF` = encerrada sem
   mais episódios, verde `#66CC00` = ainda vai ter episódios novos, `#CB9783` = dropped
   (ver `showProgressColor` em `lib/config.ts`).
+- Home > Up Next: só mostra séries assistidas nos últimos 30 dias
+  (`STALE_AFTER_MS` em `app/(app)/page.tsx`); as demais (ou nunca assistidas)
+  caem em "Haven't Seen in a While", ordenadas da mais abandonada pra menos.
+- My List: sort "Up to Date" agrupa séries em dia (assistiu tudo que já saiu)
+  antes das atrasadas, ordenando por data do último episódio lançado.
 - Sem sistema de notas na v1 (decidido em 2026-07-04).
 - UI em inglês; dados TMDB em `en-US`.
 

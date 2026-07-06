@@ -18,6 +18,7 @@ import {
 import {
   ENDED_TV_STATUSES,
   LIBRARY_STATUSES,
+  regularEpisodeTotal,
   showProgressColor,
   STATUS_LABELS,
   tmdbPoster,
@@ -45,17 +46,17 @@ const TAB_LABELS: Record<StatusFilter, string> = {
   ...STATUS_LABELS,
 };
 
-// "New Ep" only makes sense for TV: filters down to shows with a confirmed
-// upcoming episode, soonest first.
-type SortOption = "alpha" | "genre" | "airing";
+// "Up to Date" and "New Ep" only make sense for TV — movies have no
+// per-episode progress or air schedule.
+type SortOption = "alpha" | "upToDate" | "airing";
 const SORT_LABELS: Record<SortOption, string> = {
   alpha: "A-Z",
-  genre: "Genre",
+  upToDate: "Up to Date",
   airing: "New Ep",
 };
 const SORT_OPTIONS_BY_MEDIA_TYPE: Record<MediaTypeFilter, readonly SortOption[]> = {
-  tv: ["alpha", "genre", "airing"],
-  movie: ["alpha", "genre"],
+  tv: ["alpha", "upToDate", "airing"],
+  movie: ["alpha"],
 };
 
 // Reads UI state (tab/media/sort) from the URL so it survives navigating
@@ -189,21 +190,32 @@ export default function LibraryPage() {
 
     const arr = [...items];
     arr.sort((a, b) => {
-      if (sortBy === "genre") {
-        const detailsA = a.media_type === "tv" ? detailsById.get(a.tmdb_id) : movieDetailsById.get(a.tmdb_id);
-        const detailsB = b.media_type === "tv" ? detailsById.get(b.tmdb_id) : movieDetailsById.get(b.tmdb_id);
-        const genreA = detailsA?.genres[0]?.name;
-        const genreB = detailsB?.genres[0]?.name;
-        // still-loading items (no genre yet) sort to the end
-        if (!genreA && genreB) return 1;
-        if (genreA && !genreB) return -1;
-        const cmp = genreA && genreB ? genreA.localeCompare(genreB) : 0;
-        if (cmp !== 0) return cmp;
+      if (sortBy === "upToDate") {
+        const detailsA = detailsById.get(a.tmdb_id);
+        const detailsB = detailsById.get(b.tmdb_id);
+        // still-loading items sort to the end
+        if (!detailsA && detailsB) return 1;
+        if (detailsA && !detailsB) return -1;
+
+        if (detailsA && detailsB) {
+          const totalA = regularEpisodeTotal(detailsA);
+          const totalB = regularEpisodeTotal(detailsB);
+          const upToDateA = totalA > 0 && (counts.get(a.tmdb_id) ?? 0) >= totalA;
+          const upToDateB = totalB > 0 && (counts.get(b.tmdb_id) ?? 0) >= totalB;
+          if (upToDateA !== upToDateB) return upToDateA ? -1 : 1; // caught up first
+
+          // within each group, most recently aired episode first
+          const lastA = detailsA.last_episode_to_air?.air_date;
+          const lastB = detailsB.last_episode_to_air?.air_date;
+          if (!lastA && lastB) return 1;
+          if (lastA && !lastB) return -1;
+          if (lastA && lastB && lastA !== lastB) return lastB.localeCompare(lastA);
+        }
       }
       return a.title.localeCompare(b.title);
     });
     return arr;
-  }, [items, sortBy, detailsById, movieDetailsById]);
+  }, [items, sortBy, detailsById, counts]);
 
   return (
     <>
@@ -294,11 +306,7 @@ export default function LibraryPage() {
                 ? movieDetailsById.get(item.tmdb_id)
                 : null;
             const genre = (details ?? movieDetails)?.genres[0]?.name;
-            const total = details
-              ? details.seasons
-                  .filter((s) => s.season_number > 0)
-                  .reduce((sum, s) => sum + s.episode_count, 0)
-              : 0;
+            const total = details ? regularEpisodeTotal(details) : 0;
             const seen = counts.get(item.tmdb_id) ?? 0;
             const ended = details
               ? ENDED_TV_STATUSES.includes(details.status)

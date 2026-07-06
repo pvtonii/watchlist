@@ -250,6 +250,19 @@ export function watchedCountByShow(rows: WatchedEpisode[] | undefined) {
   return map;
 }
 
+/** most recent watched_at per show id (excludes specials / season 0, like watchedCountByShow). */
+export function lastWatchedByShow(rows: WatchedEpisode[] | undefined) {
+  const map = new Map<number, string>();
+  for (const row of rows ?? []) {
+    if (row.season_number === 0) continue;
+    const existing = map.get(row.tmdb_show_id);
+    if (!existing || row.watched_at > existing) {
+      map.set(row.tmdb_show_id, row.watched_at);
+    }
+  }
+  return map;
+}
+
 /** watched count per season for one show. */
 export function watchedCountBySeason(
   rows: WatchedEpisode[] | undefined,

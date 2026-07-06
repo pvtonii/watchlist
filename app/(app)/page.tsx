@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { Tv, Search } from "lucide-react";
 import Topbar from "@/components/topbar";
 import PosterCard from "@/components/poster-card";
-import ProgressBar from "@/components/progress-bar";
+import ShowProgressCard from "@/components/show-progress-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   useLibrary,
@@ -14,18 +14,14 @@ import {
   useTmdb,
   useTvDetailsMany,
   watchedCountByShow,
+  lastWatchedByShow,
 } from "@/lib/hooks";
-import { APP_NAME, tmdbPoster } from "@/lib/config";
+import { APP_NAME, regularEpisodeTotal, tmdbPoster } from "@/lib/config";
 import { fmtDate, fmtDateShort, seasonEpisodeLabel } from "@/lib/format";
 import type { TvDetails, UpcomingResponse } from "@/lib/tmdb-types";
 import { itemTitle } from "@/lib/tmdb-types";
 
-/** Regular (non-specials) episode total for a show. */
-function regularTotal(show: TvDetails) {
-  return show.seasons
-    .filter((s) => s.season_number > 0)
-    .reduce((sum, s) => sum + s.episode_count, 0);
-}
+const STALE_AFTER_MS = 30 * 24 * 60 * 60 * 1000; // "haven't seen in a while" threshold
 
 /** Approximate next unwatched episode assuming episodes are watched in order. */
 function nextUnwatched(show: TvDetails, seen: number) {
@@ -67,21 +63,37 @@ export default function HomePage() {
   );
   const detailQueries = useTvDetailsMany(trackedTvShows.map((i) => i.tmdb_id));
   const counts = watchedCountByShow(watched);
+  const lastWatched = lastWatchedByShow(watched);
 
   const shows = detailQueries
     .map((q) => q.data)
     .filter((s): s is TvDetails => Boolean(s));
   const watchingShowIds = new Set(watchingShows.map((i) => i.tmdb_id));
 
-  const upNext = shows
+  const upNextAll = shows
     .filter((show) => watchingShowIds.has(show.id))
     .map((show) => {
-      const total = regularTotal(show);
+      const total = regularEpisodeTotal(show);
       const seen = counts.get(show.id) ?? 0;
       const next = seen < total ? nextUnwatched(show, seen) : null;
-      return next ? { show, seen, total, next } : null;
+      const lastWatchedAt = lastWatched.get(show.id) ?? null;
+      return next ? { show, seen, total, next, lastWatchedAt } : null;
     })
     .filter((x): x is NonNullable<typeof x> => x !== null);
+
+  // recently active first; shows you haven't touched in 30+ days (or never
+  // logged an episode at all) split off into their own "stale" section.
+  const now = new Date().getTime();
+  const upNextRecent = upNextAll
+    .filter(
+      (x) => x.lastWatchedAt && now - new Date(x.lastWatchedAt).getTime() <= STALE_AFTER_MS
+    )
+    .sort((a, b) => b.lastWatchedAt!.localeCompare(a.lastWatchedAt!));
+  const upNextStale = upNextAll
+    .filter(
+      (x) => !x.lastWatchedAt || now - new Date(x.lastWatchedAt).getTime() > STALE_AFTER_MS
+    )
+    .sort((a, b) => (a.lastWatchedAt ?? "").localeCompare(b.lastWatchedAt ?? ""));
 
   const airingSoon = shows
     .filter((s) => s.next_episode_to_air)
@@ -99,12 +111,12 @@ export default function HomePage() {
     <>
       <Topbar title={APP_NAME} brand />
       <main className="content flex flex-col gap-7 pt-2">
-        {/* -------- Up Next (continue watching) -------- */}
+        {/* -------- Up Next (continue watching, recently active) -------- */}
         <section>
           <h2 className="mb-3 text-base font-bold">Up Next</h2>
           {libraryLoading ? (
             <Skeleton className="h-20 w-full" />
-          ) : upNext.length === 0 ? (
+          ) : upNextAll.length === 0 ? (
             <div className="rounded-xl bg-card p-4 text-sm text-muted-foreground">
               <Tv className="mb-2 text-primary" size={20} />
               Nothing in progress. Find a show and set it to{" "}
@@ -117,30 +129,46 @@ export default function HomePage() {
                 <Search size={14} /> Search shows
               </Link>
             </div>
+          ) : upNextRecent.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nothing watched recently — check “Haven&apos;t Seen in a While” below.
+            </p>
           ) : (
-            <div className="flex flex-col gap-2.5">
-              {upNext.map(({ show, seen, total, next }) => (
-                <Link
+            <div className="hscroll">
+              {upNextRecent.map(({ show, seen, total, next }) => (
+                <ShowProgressCard
                   key={show.id}
                   href={`/tv/${show.id}/season/${next.season}`}
-                  className="flex items-center gap-3 rounded-xl bg-card p-2.5"
-                >
-                  <ShowPoster path={show.poster_path} alt={show.name} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold">{show.name}</p>
-                    <p className="mb-1.5 text-xs text-muted-foreground">
-                      {seasonEpisodeLabel(next.season, next.episode)} up next
-                    </p>
-                    <ProgressBar value={seen} max={total} />
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      {seen}/{total} episodes
-                    </p>
-                  </div>
-                </Link>
+                  title={show.name}
+                  posterPath={show.poster_path}
+                  seen={seen}
+                  total={total}
+                  nextLabel={`${seasonEpisodeLabel(next.season, next.episode)} up next`}
+                />
               ))}
             </div>
           )}
         </section>
+
+        {/* -------- Watching shows you haven't touched in 30+ days -------- */}
+        {upNextStale.length > 0 && (
+          <section>
+            <h2 className="mb-3 text-base font-bold">Haven&apos;t Seen in a While</h2>
+            <div className="hscroll">
+              {upNextStale.map(({ show, seen, total, next }) => (
+                <ShowProgressCard
+                  key={show.id}
+                  href={`/tv/${show.id}/season/${next.season}`}
+                  title={show.name}
+                  posterPath={show.poster_path}
+                  seen={seen}
+                  total={total}
+                  nextLabel={`${seasonEpisodeLabel(next.season, next.episode)} up next`}
+                />
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* -------- Upcoming episodes of shows you watch -------- */}
         {airingSoon.length > 0 && (

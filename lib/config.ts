@@ -4,8 +4,10 @@
  * A cada mudança: subir APP_VERSION (MAIOR.MENOR.CORREÇÃO) e APP_RELEASE_DATE
  * (data real da entrega). O footer lê daqui automaticamente.
  */
+import type { TvDetails } from "./tmdb-types";
+
 export const APP_NAME = "WatchList";
-export const APP_VERSION = "1.7.2";
+export const APP_VERSION = "1.8.0";
 export const APP_RELEASE_DATE = "2026-07-06";
 
 /** Must match the topbar/background color in globals.css (--bg-deep). */
@@ -46,6 +48,13 @@ export const SHOW_PROGRESS_COLORS = {
 
 /** TMDB `TvDetails.status` values that mean the show won't get new episodes. */
 export const ENDED_TV_STATUSES = ["Ended", "Canceled"];
+
+/** Regular (non-specials) episode total for a show. */
+export function regularEpisodeTotal(show: TvDetails): number {
+  return show.seasons
+    .filter((s) => s.season_number > 0)
+    .reduce((sum, s) => sum + s.episode_count, 0);
+}
 
 /** Progress bar color for a show, based on your library status + its air status. */
 export function showProgressColor(
