@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Film, Clapperboard } from "lucide-react";
 import Topbar from "@/components/topbar";
@@ -57,20 +58,72 @@ const SORT_OPTIONS_BY_MEDIA_TYPE: Record<MediaTypeFilter, readonly SortOption[]>
   movie: ["alpha", "genre"],
 };
 
+// Reads UI state (tab/media/sort) from the URL so it survives navigating
+// into a detail page and back — plain useState resets on remount, which made
+// the back button seem to "forget" what you had selected.
+function readMediaType(params: URLSearchParams): MediaTypeFilter {
+  const value = params.get("media");
+  return (MEDIA_TYPES as readonly string[]).includes(value ?? "")
+    ? (value as MediaTypeFilter)
+    : "tv";
+}
+function readTab(params: URLSearchParams, mediaType: MediaTypeFilter): StatusFilter {
+  const value = params.get("tab");
+  return STATUSES_BY_MEDIA_TYPE[mediaType].includes(value as StatusFilter)
+    ? (value as StatusFilter)
+    : "watching";
+}
+function readSort(params: URLSearchParams, mediaType: MediaTypeFilter): SortOption {
+  const value = params.get("sort");
+  return SORT_OPTIONS_BY_MEDIA_TYPE[mediaType].includes(value as SortOption)
+    ? (value as SortOption)
+    : "alpha";
+}
+
 export default function LibraryPage() {
-  const [tab, setTab] = useState<StatusFilter>("watching");
-  const [mediaType, setMediaType] = useState<MediaTypeFilter>("tv");
-  const [sortBy, setSortBy] = useState<SortOption>("alpha");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const [mediaType, setMediaTypeState] = useState<MediaTypeFilter>(() =>
+    readMediaType(searchParams)
+  );
+  const [tab, setTabState] = useState<StatusFilter>(() =>
+    readTab(searchParams, mediaType)
+  );
+  const [sortBy, setSortByState] = useState<SortOption>(() =>
+    readSort(searchParams, mediaType)
+  );
   const { data: library, isLoading } = useLibrary();
   const { data: watched } = useWatchedEpisodes();
 
   const statuses = STATUSES_BY_MEDIA_TYPE[mediaType];
   const sortOptions = SORT_OPTIONS_BY_MEDIA_TYPE[mediaType];
 
+  // Mirror state into the URL (replace, not push — this is a filter tweak,
+  // not a new "place" to visit) so it's whatever's there when you come back.
+  function updateQuery(patch: Record<string, string>) {
+    const params = new URLSearchParams(searchParams.toString());
+    for (const [key, value] of Object.entries(patch)) params.set(key, value);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }
+
+  function setTab(next: StatusFilter) {
+    setTabState(next);
+    updateQuery({ tab: next });
+  }
+
+  function setSortBy(next: SortOption) {
+    setSortByState(next);
+    updateQuery({ sort: next });
+  }
+
   function selectMediaType(type: MediaTypeFilter) {
-    setMediaType(type);
-    if (!STATUSES_BY_MEDIA_TYPE[type].includes(tab)) setTab("watchlist");
-    setSortBy("alpha");
+    const nextTab = STATUSES_BY_MEDIA_TYPE[type].includes(tab) ? tab : "watchlist";
+    setMediaTypeState(type);
+    setTabState(nextTab);
+    setSortByState("alpha");
+    updateQuery({ media: type, tab: nextTab, sort: "alpha" });
   }
 
   const items = useMemo(
