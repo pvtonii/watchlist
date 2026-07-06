@@ -44,12 +44,13 @@ const TAB_LABELS: Record<StatusFilter, string> = {
   ...STATUS_LABELS,
 };
 
-// "New Episodes" (soonest upcoming episode first) only makes sense for TV.
+// "New Ep" only makes sense for TV: filters down to shows with a confirmed
+// upcoming episode, soonest first.
 type SortOption = "alpha" | "genre" | "airing";
 const SORT_LABELS: Record<SortOption, string> = {
   alpha: "A-Z",
   genre: "Genre",
-  airing: "New Episodes",
+  airing: "New Ep",
 };
 const SORT_OPTIONS_BY_MEDIA_TYPE: Record<MediaTypeFilter, readonly SortOption[]> = {
   tv: ["alpha", "genre", "airing"],
@@ -117,6 +118,22 @@ export default function LibraryPage() {
   const counts = watchedCountByShow(watched);
 
   const sortedItems = useMemo(() => {
+    if (sortBy === "airing") {
+      // only shows with a confirmed upcoming episode, soonest first
+      const today = new Date().toISOString().slice(0, 10);
+      return items
+        .map((item) => ({
+          item,
+          date: detailsById.get(item.tmdb_id)?.next_episode_to_air?.air_date ?? null,
+        }))
+        .filter((x) => x.date && x.date >= today)
+        .sort(
+          (a, b) =>
+            a.date!.localeCompare(b.date!) || a.item.title.localeCompare(b.item.title)
+        )
+        .map((x) => x.item);
+    }
+
     const arr = [...items];
     arr.sort((a, b) => {
       if (sortBy === "genre") {
@@ -129,23 +146,6 @@ export default function LibraryPage() {
         if (genreA && !genreB) return -1;
         const cmp = genreA && genreB ? genreA.localeCompare(genreB) : 0;
         if (cmp !== 0) return cmp;
-      } else if (sortBy === "airing") {
-        // 1) continuing shows before ended ones, no matter what dates say
-        const detailsA = detailsById.get(a.tmdb_id);
-        const detailsB = detailsById.get(b.tmdb_id);
-        const endedA = ENDED_TV_STATUSES.includes(detailsA?.status ?? "");
-        const endedB = ENDED_TV_STATUSES.includes(detailsB?.status ?? "");
-        if (endedA !== endedB) return endedA ? 1 : -1;
-
-        // 2) within continuing shows, soonest upcoming episode first
-        const today = new Date().toISOString().slice(0, 10);
-        const rawA = detailsA?.next_episode_to_air?.air_date;
-        const rawB = detailsB?.next_episode_to_air?.air_date;
-        const dateA = rawA && rawA >= today ? rawA : null;
-        const dateB = rawB && rawB >= today ? rawB : null;
-        if (!dateA && dateB) return 1;
-        if (dateA && !dateB) return -1;
-        if (dateA && dateB && dateA !== dateB) return dateA.localeCompare(dateB);
       }
       return a.title.localeCompare(b.title);
     });
@@ -221,7 +221,9 @@ export default function LibraryPage() {
           <div className="mt-12 flex flex-col items-center gap-2 text-muted-foreground">
             <Clapperboard size={28} />
             <p className="text-sm">
-              Nothing in “{TAB_LABELS[tab]}” for {MEDIA_TYPE_LABELS[mediaType]} yet.
+              {sortBy === "airing" && items.length > 0
+                ? "No confirmed upcoming episodes in this list yet."
+                : `Nothing in “${TAB_LABELS[tab]}” for ${MEDIA_TYPE_LABELS[mediaType]} yet.`}
             </p>
             <Link href="/search" className="text-sm font-bold text-primary">
               Find something to watch
