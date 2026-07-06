@@ -19,6 +19,7 @@ import {
   tmdbPoster,
   type LibraryStatus,
 } from "@/lib/config";
+import { fmtDateTime } from "@/lib/format";
 import type { TvDetails } from "@/lib/tmdb-types";
 
 const MEDIA_TYPES = ["tv", "movie"] as const;
@@ -158,6 +159,11 @@ export default function LibraryPage() {
                       ? ` · ${item.release_date.slice(0, 4)}`
                       : ""}
                   </p>
+                  {item.status === "completed" && (
+                    <p className="text-[11px] text-primary">
+                      Watched {fmtDateTime(item.updated_at)}
+                    </p>
+                  )}
                   {item.media_type === "tv" && total > 0 && (
                     <>
                       <div className="mt-1.5">

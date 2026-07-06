@@ -29,6 +29,7 @@ export interface WatchedEpisode {
   tmdb_show_id: number;
   season_number: number;
   episode_number: number;
+  watched_at: string;
 }
 
 /* ---------------- TMDB (via our API routes) ---------------- */
@@ -129,7 +130,7 @@ export function useWatchedEpisodes() {
       const supabase = getSupabase();
       const { data, error } = await supabase
         .from("watched_episodes")
-        .select("tmdb_show_id, season_number, episode_number");
+        .select("tmdb_show_id, season_number, episode_number, watched_at");
       if (error) throw error;
       return data as WatchedEpisode[];
     },
@@ -239,6 +240,21 @@ export function watchedCountBySeason(
   for (const row of rows ?? []) {
     if (row.tmdb_show_id !== showId) continue;
     map.set(row.season_number, (map.get(row.season_number) ?? 0) + 1);
+  }
+  return map;
+}
+
+/** watched_at per episode number, for one show/season. */
+export function watchedDateByEpisode(
+  rows: WatchedEpisode[] | undefined,
+  showId: number,
+  seasonNumber: number
+) {
+  const map = new Map<number, string>();
+  for (const row of rows ?? []) {
+    if (row.tmdb_show_id !== showId || row.season_number !== seasonNumber)
+      continue;
+    map.set(row.episode_number, row.watched_at);
   }
   return map;
 }

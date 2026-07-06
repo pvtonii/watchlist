@@ -12,7 +12,7 @@ import {
   useRemoveFromLibrary,
   useTmdb,
 } from "@/lib/hooks";
-import { fmtDate } from "@/lib/format";
+import { fmtDate, fmtDateTime } from "@/lib/format";
 import type { MovieDetails } from "@/lib/tmdb-types";
 import type { LibraryStatus } from "@/lib/config";
 
@@ -92,6 +92,12 @@ export default function MoviePage({
                 label="Watched"
               />
             </div>
+
+            {item?.status === "completed" && (
+              <p className="-mt-3 text-center text-xs text-muted-foreground">
+                Watched {fmtDateTime(item.updated_at)}
+              </p>
+            )}
 
             {movie.overview && (
               <section>

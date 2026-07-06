@@ -12,8 +12,9 @@ import {
   useToggleEpisode,
   useMarkSeason,
   useWatchedEpisodes,
+  watchedDateByEpisode,
 } from "@/lib/hooks";
-import { fmtDateShort } from "@/lib/format";
+import { fmtDateShort, fmtDateTime } from "@/lib/format";
 import type { SeasonDetails, TvDetails } from "@/lib/tmdb-types";
 
 export default function SeasonPage({
@@ -47,6 +48,8 @@ export default function SeasonPage({
       ),
     [watched, showId, seasonNumber]
   );
+
+  const watchedDates = watchedDateByEpisode(watched, showId, seasonNumber);
 
   const episodes = data?.episodes ?? [];
   const allWatched = episodes.length > 0 && watchedSet.size >= episodes.length;
@@ -150,6 +153,11 @@ export default function SeasonPage({
                         {ep.runtime ? ` · ${ep.runtime} min` : ""}
                         {unaired ? " · not aired yet" : ""}
                       </p>
+                      {isWatched && (
+                        <p className="text-[11px] text-primary">
+                          Watched {fmtDateTime(watchedDates.get(ep.episode_number))}
+                        </p>
+                      )}
                     </div>
                   </div>
                 );

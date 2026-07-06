@@ -18,7 +18,7 @@ import {
 import { APP_NAME, tmdbPoster } from "@/lib/config";
 import { fmtDateShort, seasonEpisodeLabel } from "@/lib/format";
 import type { TvDetails, UpcomingResponse } from "@/lib/tmdb-types";
-import { itemTitle, itemYear } from "@/lib/tmdb-types";
+import { itemTitle } from "@/lib/tmdb-types";
 
 /** Regular (non-specials) episode total for a show. */
 function regularTotal(show: TvDetails) {
@@ -78,6 +78,10 @@ export default function HomePage() {
         b.next_episode_to_air!.air_date ?? ""
       )
     );
+
+  const wantToWatchMovies = (library ?? []).filter(
+    (i) => i.media_type === "movie" && i.status === "watchlist"
+  );
 
   return (
     <>
@@ -181,27 +185,25 @@ export default function HomePage() {
           )}
         </section>
 
-        {/* -------- TV airing this week -------- */}
-        <section>
-          <h2 className="mb-3 text-base font-bold">On TV This Week</h2>
-          {upcomingLoading ? (
-            <Skeleton className="h-40 w-full" />
-          ) : (
+        {/* -------- Movies you've marked Want to Watch -------- */}
+        {wantToWatchMovies.length > 0 && (
+          <section>
+            <h2 className="mb-3 text-base font-bold">Want to Watch</h2>
             <div className="hscroll">
-              {(upcoming?.tv ?? []).slice(0, 15).map((s) => (
+              {wantToWatchMovies.map((item) => (
                 <PosterCard
-                  key={s.id}
-                  id={s.id}
-                  mediaType="tv"
-                  title={itemTitle(s)}
-                  posterPath={s.poster_path}
-                  sub={itemYear(s)}
+                  key={item.id}
+                  id={item.tmdb_id}
+                  mediaType="movie"
+                  title={item.title}
+                  posterPath={item.poster_path}
+                  sub={fmtDateShort(item.release_date)}
                   width={108}
                 />
               ))}
             </div>
-          )}
-        </section>
+          </section>
+        )}
       </main>
     </>
   );

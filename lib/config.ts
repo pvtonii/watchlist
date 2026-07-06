@@ -5,8 +5,8 @@
  * (data real da entrega). O footer lê daqui automaticamente.
  */
 export const APP_NAME = "WatchList";
-export const APP_VERSION = "1.0.0";
-export const APP_RELEASE_DATE = "2026-07-04";
+export const APP_VERSION = "1.1.0";
+export const APP_RELEASE_DATE = "2026-07-06";
 
 /** Must match the topbar/background color in globals.css (--bg-deep). */
 export const THEME_COLOR = "#0c111b";
