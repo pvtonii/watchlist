@@ -42,3 +42,6 @@ next-env.d.ts
 
 # keep the example committed
 !.env.example
+
+# personal TV Time export data / generated reports (repo is public)
+/scripts/tvtime-import/data/*.json

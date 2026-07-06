@@ -133,17 +133,25 @@ export function useRemoveFromLibrary() {
 
 /* ---------------- Watched episodes ---------------- */
 
-/** All watched-episode rows for the user (cheap at personal scale). */
+/** All watched-episode rows for the user. Paginated: Supabase caps a single
+ * request at 1000 rows, and heavy users can pass that. */
 export function useWatchedEpisodes() {
   return useQuery<WatchedEpisode[]>({
     queryKey: ["watched-episodes"],
     queryFn: async () => {
       const supabase = getSupabase();
-      const { data, error } = await supabase
-        .from("watched_episodes")
-        .select("tmdb_show_id, season_number, episode_number, watched_at");
-      if (error) throw error;
-      return data as WatchedEpisode[];
+      const pageSize = 1000;
+      const rows: WatchedEpisode[] = [];
+      for (let from = 0; ; from += pageSize) {
+        const { data, error } = await supabase
+          .from("watched_episodes")
+          .select("tmdb_show_id, season_number, episode_number, watched_at")
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        rows.push(...(data as WatchedEpisode[]));
+        if (data.length < pageSize) break;
+      }
+      return rows;
     },
   });
 }
