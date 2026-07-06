@@ -36,8 +36,13 @@ import { seasonEpisodeLabel } from "@/lib/format";
 import type { TvDetails } from "@/lib/tmdb-types";
 
 // "Watching" is derived automatically from episode progress, never tapped directly.
-const MANUAL_TV_STATUSES: readonly LibraryStatus[] = [
+const ALL_MANUAL_TV_STATUSES: readonly LibraryStatus[] = [
   "watchlist",
+  "completed",
+  "dropped",
+];
+// Once any episode is watched, "Want to Watch" no longer makes sense.
+const IN_PROGRESS_MANUAL_TV_STATUSES: readonly LibraryStatus[] = [
   "completed",
   "dropped",
 ];
@@ -79,6 +84,8 @@ export default function TvPage({
     (sum, s) => sum + Math.min(seasonCounts.get(s.season_number) ?? 0, s.episode_count),
     0
   );
+  const manualStatuses =
+    totalWatched > 0 ? IN_PROGRESS_MANUAL_TV_STATUSES : ALL_MANUAL_TV_STATUSES;
 
   function toggle(status: LibraryStatus) {
     if (!show) return;
@@ -163,8 +170,12 @@ export default function TvPage({
             />
 
             {/* status chips — tocar de novo remove da lista. "Watching" é automático. */}
-            <div className="grid grid-cols-3 gap-2">
-              {MANUAL_TV_STATUSES.map((status) => (
+            <div
+              className={`grid gap-2 ${
+                manualStatuses.length === 3 ? "grid-cols-3" : "grid-cols-2"
+              }`}
+            >
+              {manualStatuses.map((status) => (
                 <button
                   key={status}
                   disabled={busy}
@@ -179,22 +190,6 @@ export default function TvPage({
                 </button>
               ))}
             </div>
-
-            {item?.status === "watching" && (
-              <p className="-mt-3 text-center text-xs font-semibold text-primary">
-                Watching — updates automatically as you mark episodes
-              </p>
-            )}
-
-            {item && (
-              <button
-                onClick={() => setConfirmRemoveOpen(true)}
-                disabled={busy}
-                className="-mt-3 flex items-center justify-center gap-1.5 text-xs font-semibold text-muted-foreground disabled:opacity-60"
-              >
-                <Trash2 size={13} /> Remove from list
-              </button>
-            )}
 
             {/* progresso geral */}
             {totalEpisodes > 0 && (
@@ -249,11 +244,7 @@ export default function TvPage({
                         <p className="mb-1.5 text-xs text-muted-foreground">
                           {seen}/{season.episode_count} watched
                         </p>
-                        <ProgressBar
-                          value={seen}
-                          max={season.episode_count}
-                          color={barColor}
-                        />
+                        <ProgressBar value={seen} max={season.episode_count} />
                       </div>
                       <ChevronRight
                         size={18}
@@ -275,6 +266,16 @@ export default function TvPage({
             )}
 
             <CastRow cast={show.credits?.cast ?? []} />
+
+            {item && (
+              <button
+                onClick={() => setConfirmRemoveOpen(true)}
+                disabled={busy}
+                className="flex items-center justify-center gap-1.5 text-xs font-semibold text-muted-foreground disabled:opacity-60"
+              >
+                <Trash2 size={13} /> Remove from list
+              </button>
+            )}
 
             <Dialog
               open={confirmCompletedOpen}

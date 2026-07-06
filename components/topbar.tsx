@@ -7,10 +7,12 @@ export default function Topbar({
   title,
   back = false,
   brand = false,
+  right,
 }: {
   title: string;
   back?: boolean;
   brand?: boolean;
+  right?: React.ReactNode;
 }) {
   const router = useRouter();
 
@@ -34,6 +36,7 @@ export default function Topbar({
       >
         {title}
       </h1>
+      {right && <div className="ml-auto">{right}</div>}
     </header>
   );
 }

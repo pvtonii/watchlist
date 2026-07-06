@@ -101,7 +101,14 @@ export default function LibraryPage() {
 
   return (
     <>
-      <Topbar title="My List" />
+      <Topbar
+        title="My List"
+        right={
+          <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-bold text-muted-foreground">
+            {TAB_LABELS[tab]} {countsByStatus[tab]}
+          </span>
+        }
+      />
       <main className="content pt-1">
         {/* toggle TV Shows / Movies */}
         <div className="mb-3 grid grid-cols-2 gap-2 rounded-full bg-secondary p-1">
@@ -133,7 +140,6 @@ export default function LibraryPage() {
               }`}
             >
               {TAB_LABELS[status]}
-              <span className="ml-1.5 opacity-70">{countsByStatus[status]}</span>
             </button>
           ))}
         </div>
