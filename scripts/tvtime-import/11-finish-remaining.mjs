@@ -1,7 +1,8 @@
-// Runs the 3 remaining TV Time import steps in one go, with a single login:
+// Runs the remaining TV Time import steps in one go, with a single login:
 //   1. Mark archived-on-TV-Time shows as "dropped" (episodes stay untouched)
 //   2. Add followed-only shows (0 episodes watched) as "Want to Watch"
 //   3. Add watched movies as "completed" with their real watched date
+//   4. Add "want to watch" movies as "watchlist"
 //
 // Usage:
 //   node 11-finish-remaining.mjs "<path to tv time export folder>"          (dry run)
@@ -64,7 +65,7 @@ async function main() {
   }
 
   // ---------- 1. Mark archived shows as dropped ----------
-  console.log("== 1/3: marking archived shows as dropped ==");
+  console.log("== 1/4: marking archived shows as dropped ==");
   const followed = readCsvObjects(path.join(exportDir, "followed_tv_show.csv"), fs);
   const archivedIds = new Set(followed.filter((r) => r.archived === "1").map((r) => r.tv_show_id));
   const { shows: resolvedShows } = JSON.parse(fs.readFileSync(path.join(dataDir, "resolved-shows.json"), "utf8"));
@@ -86,7 +87,7 @@ async function main() {
   console.log(`-> ${droppedWritten}/${toDrop.length} updated\n`);
 
   // ---------- 2. Add followed-only shows as Want to Watch ----------
-  console.log("== 2/3: adding followed-only shows as Want to Watch ==");
+  console.log("== 2/4: adding followed-only shows as Want to Watch ==");
   const { shows: followedOnly } = JSON.parse(fs.readFileSync(path.join(dataDir, "resolved-followed.json"), "utf8"));
 
   let followedWritten = 0;
@@ -120,7 +121,7 @@ async function main() {
   console.log(`-> ${followedWritten}/${followedOnly.length} added\n`);
 
   // ---------- 3. Add watched movies as completed ----------
-  console.log("== 3/3: adding watched movies ==");
+  console.log("== 3/4: adding watched movies ==");
   const { movies } = JSON.parse(fs.readFileSync(path.join(dataDir, "movies-match-report.json"), "utf8"));
   const resolvedMovies = movies.filter((m) => m.chosenTmdbId);
 
@@ -155,6 +156,43 @@ async function main() {
     else moviesWritten++;
   }
   console.log(`-> ${moviesWritten}/${resolvedMovies.length} added\n`);
+
+  // ---------- 4. Add "want to watch" movies as watchlist ----------
+  console.log("== 4/4: adding want-to-watch movies ==");
+  const { movies: towatchMovies } = JSON.parse(
+    fs.readFileSync(path.join(dataDir, "towatch-movies-match-report.json"), "utf8")
+  );
+  const resolvedTowatch = towatchMovies.filter((m) => m.chosenTmdbId);
+
+  let towatchWritten = 0;
+  for (const [i, m] of resolvedTowatch.entries()) {
+    const label = `[${i + 1}/${resolvedTowatch.length}] ${m.title} -> "${m.chosenTitle}" (tmdb ${m.chosenTmdbId})`;
+    let details;
+    try {
+      details = await tmdbFetch(`/movie/${m.chosenTmdbId}`);
+    } catch (err) {
+      console.error(`  ! ${label}: TMDB lookup failed (${err.message})`);
+      continue;
+    }
+    await sleep(80);
+    console.log(`  ${label}`);
+    if (!commit) continue;
+    const { error } = await supabase.from("library_items").upsert(
+      {
+        user_id: userId,
+        tmdb_id: m.chosenTmdbId,
+        media_type: "movie",
+        status: "watchlist",
+        title: details.title,
+        poster_path: details.poster_path,
+        release_date: details.release_date || null,
+      },
+      { onConflict: "user_id,tmdb_id,media_type" }
+    );
+    if (error) console.error(`  ! failed (code ${error.code}): ${error.message}`);
+    else towatchWritten++;
+  }
+  console.log(`-> ${towatchWritten}/${resolvedTowatch.length} added\n`);
 
   console.log(commit ? "All done." : "Dry run complete — rerun with --commit to write these changes.");
 }

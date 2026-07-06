@@ -44,17 +44,32 @@ const TAB_LABELS: Record<StatusFilter, string> = {
   ...STATUS_LABELS,
 };
 
+// "New Episodes" (soonest upcoming episode first) only makes sense for TV.
+type SortOption = "alpha" | "genre" | "airing";
+const SORT_LABELS: Record<SortOption, string> = {
+  alpha: "A-Z",
+  genre: "Genre",
+  airing: "New Episodes",
+};
+const SORT_OPTIONS_BY_MEDIA_TYPE: Record<MediaTypeFilter, readonly SortOption[]> = {
+  tv: ["alpha", "genre", "airing"],
+  movie: ["alpha", "genre"],
+};
+
 export default function LibraryPage() {
   const [tab, setTab] = useState<StatusFilter>("watching");
   const [mediaType, setMediaType] = useState<MediaTypeFilter>("tv");
+  const [sortBy, setSortBy] = useState<SortOption>("alpha");
   const { data: library, isLoading } = useLibrary();
   const { data: watched } = useWatchedEpisodes();
 
   const statuses = STATUSES_BY_MEDIA_TYPE[mediaType];
+  const sortOptions = SORT_OPTIONS_BY_MEDIA_TYPE[mediaType];
 
   function selectMediaType(type: MediaTypeFilter) {
     setMediaType(type);
     if (!STATUSES_BY_MEDIA_TYPE[type].includes(tab)) setTab("watchlist");
+    setSortBy("alpha");
   }
 
   const items = useMemo(
@@ -89,15 +104,43 @@ export default function LibraryPage() {
     .map((i) => i.tmdb_id);
   const detailQueries = useTvDetailsMany(tvIds);
   const movieDetailQueries = useMovieDetailsMany(movieIds);
-  const detailsById = new Map<number, TvDetails>();
-  for (const q of detailQueries) {
-    if (q.data) detailsById.set(q.data.id, q.data);
-  }
-  const movieDetailsById = new Map<number, MovieDetails>();
-  for (const q of movieDetailQueries) {
-    if (q.data) movieDetailsById.set(q.data.id, q.data);
-  }
+  const detailsById = useMemo(() => {
+    const map = new Map<number, TvDetails>();
+    for (const q of detailQueries) if (q.data) map.set(q.data.id, q.data);
+    return map;
+  }, [detailQueries]);
+  const movieDetailsById = useMemo(() => {
+    const map = new Map<number, MovieDetails>();
+    for (const q of movieDetailQueries) if (q.data) map.set(q.data.id, q.data);
+    return map;
+  }, [movieDetailQueries]);
   const counts = watchedCountByShow(watched);
+
+  const sortedItems = useMemo(() => {
+    const arr = [...items];
+    arr.sort((a, b) => {
+      if (sortBy === "genre") {
+        const detailsA = a.media_type === "tv" ? detailsById.get(a.tmdb_id) : movieDetailsById.get(a.tmdb_id);
+        const detailsB = b.media_type === "tv" ? detailsById.get(b.tmdb_id) : movieDetailsById.get(b.tmdb_id);
+        const genreA = detailsA?.genres[0]?.name;
+        const genreB = detailsB?.genres[0]?.name;
+        // still-loading items (no genre yet) sort to the end
+        if (!genreA && genreB) return 1;
+        if (genreA && !genreB) return -1;
+        const cmp = genreA && genreB ? genreA.localeCompare(genreB) : 0;
+        if (cmp !== 0) return cmp;
+      } else if (sortBy === "airing") {
+        // soonest upcoming episode first; shows with no upcoming episode sort to the end
+        const dateA = detailsById.get(a.tmdb_id)?.next_episode_to_air?.air_date;
+        const dateB = detailsById.get(b.tmdb_id)?.next_episode_to_air?.air_date;
+        if (!dateA && dateB) return 1;
+        if (dateA && !dateB) return -1;
+        if (dateA && dateB && dateA !== dateB) return dateA.localeCompare(dateB);
+      }
+      return a.title.localeCompare(b.title);
+    });
+    return arr;
+  }, [items, sortBy, detailsById, movieDetailsById]);
 
   return (
     <>
@@ -144,9 +187,27 @@ export default function LibraryPage() {
           ))}
         </div>
 
+        {/* sort */}
+        <div className="mb-4 flex items-center gap-2 overflow-x-auto">
+          <span className="shrink-0 text-xs font-bold text-muted-foreground">Sort:</span>
+          {sortOptions.map((option) => (
+            <button
+              key={option}
+              onClick={() => setSortBy(option)}
+              className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold transition-colors ${
+                sortBy === option
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-muted-foreground"
+              }`}
+            >
+              {SORT_LABELS[option]}
+            </button>
+          ))}
+        </div>
+
         {isLoading && <Skeleton className="h-40 w-full" />}
 
-        {!isLoading && items.length === 0 && (
+        {!isLoading && sortedItems.length === 0 && (
           <div className="mt-12 flex flex-col items-center gap-2 text-muted-foreground">
             <Clapperboard size={28} />
             <p className="text-sm">
@@ -159,7 +220,7 @@ export default function LibraryPage() {
         )}
 
         <div className="flex flex-col gap-2.5">
-          {items.map((item) => {
+          {sortedItems.map((item) => {
             const poster = tmdbPoster(item.poster_path, "w185");
             const details =
               item.media_type === "tv" ? detailsById.get(item.tmdb_id) : null;

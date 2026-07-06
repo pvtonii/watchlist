@@ -5,7 +5,7 @@
  * (data real da entrega). O footer lê daqui automaticamente.
  */
 export const APP_NAME = "WatchList";
-export const APP_VERSION = "1.5.0";
+export const APP_VERSION = "1.6.0";
 export const APP_RELEASE_DATE = "2026-07-06";
 
 /** Must match the topbar/background color in globals.css (--bg-deep). */
@@ -40,8 +40,8 @@ export const SHOW_PROGRESS_COLORS = {
   ended: "#9900FF",
   /** Watching/Completed, and the show is still airing/renewed. */
   continuing: "#66CC00",
-  /** Dropped. */
-  dropped: "#CB9783",
+  /** Dropped. Matches globals.css --bad. */
+  dropped: "#f87171",
 } as const;
 
 /** TMDB `TvDetails.status` values that mean the show won't get new episodes. */
