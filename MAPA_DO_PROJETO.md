@@ -78,8 +78,11 @@
   mais episódios, verde `#66CC00` = ainda vai ter episódios novos, `#CB9783` = dropped
   (ver `showProgressColor` em `lib/config.ts`).
 - Home > Up Next: só mostra séries assistidas nos últimos 30 dias
-  (`STALE_AFTER_MS` em `app/(app)/page.tsx`); as demais (ou nunca assistidas)
-  caem em "Haven't Seen in a While", ordenadas da mais abandonada pra menos.
+  (`STALE_AFTER_MS` em `app/(app)/page.tsx`); as assistidas antes disso caem
+  em "Haven't Seen in a While" (carrosséis empilhados de até 8, sem
+  título/legenda, `STALE_ROW_SIZE`), ordenadas da mais abandonada pra menos.
+  Séries nunca assistidas (status Watching sem nenhum episódio marcado)
+  ficam fora da Home inteira — não aparecem em nenhuma das duas seções.
 - My List: sort "Up to Date" agrupa séries em dia (assistiu tudo que já saiu)
   antes das atrasadas, ordenando por data do último episódio lançado.
 - Sem sistema de notas na v1 (decidido em 2026-07-04).

@@ -14,6 +14,7 @@ export default function ShowProgressCard({
   total,
   nextLabel,
   width = 144,
+  compact = false,
 }: {
   href: string;
   title: string;
@@ -21,8 +22,10 @@ export default function ShowProgressCard({
   seen: number;
   total: number;
   /** e.g. "S2E5 up next" */
-  nextLabel: string;
+  nextLabel?: string;
   width?: number;
+  /** Poster + progress bar only — no title/caption below (dense "haven't seen" rows). */
+  compact?: boolean;
 }) {
   const poster = tmdbPoster(posterPath, "w342");
 
@@ -46,10 +49,16 @@ export default function ShowProgressCard({
           <ProgressBar value={seen} max={total} flush />
         </div>
       </div>
-      <p className="mt-1.5 line-clamp-2 text-xs leading-tight font-semibold">
-        {title}
-      </p>
-      <p className="mt-0.5 text-[11px] text-muted-foreground">{nextLabel}</p>
+      {!compact && (
+        <>
+          <p className="mt-1.5 line-clamp-2 text-xs leading-tight font-semibold">
+            {title}
+          </p>
+          {nextLabel && (
+            <p className="mt-0.5 text-[11px] text-muted-foreground">{nextLabel}</p>
+          )}
+        </>
+      )}
     </Link>
   );
 }

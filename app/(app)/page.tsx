@@ -22,6 +22,13 @@ import type { TvDetails, UpcomingResponse } from "@/lib/tmdb-types";
 import { itemTitle } from "@/lib/tmdb-types";
 
 const STALE_AFTER_MS = 30 * 24 * 60 * 60 * 1000; // "haven't seen in a while" threshold
+const STALE_ROW_SIZE = 8; // "Haven't Seen" is stacked hscroll rows of up to this many
+
+function chunk<T>(arr: T[], size: number): T[][] {
+  const rows: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) rows.push(arr.slice(i, i + size));
+  return rows;
+}
 
 /** Approximate next unwatched episode assuming episodes are watched in order. */
 function nextUnwatched(show: TvDetails, seen: number) {
@@ -81,8 +88,10 @@ export default function HomePage() {
     })
     .filter((x): x is NonNullable<typeof x> => x !== null);
 
-  // recently active first; shows you haven't touched in 30+ days (or never
-  // logged an episode at all) split off into their own "stale" section.
+  // recently active first; shows you haven't touched in 30+ days split off
+  // into their own "stale" section. Shows you've never actually started
+  // (no watched_at at all) are left out of Home entirely — they're not
+  // "haven't seen in a while", they're "haven't seen at all".
   const now = new Date().getTime();
   const upNextRecent = upNextAll
     .filter(
@@ -91,9 +100,10 @@ export default function HomePage() {
     .sort((a, b) => b.lastWatchedAt!.localeCompare(a.lastWatchedAt!));
   const upNextStale = upNextAll
     .filter(
-      (x) => !x.lastWatchedAt || now - new Date(x.lastWatchedAt).getTime() > STALE_AFTER_MS
+      (x) => x.lastWatchedAt && now - new Date(x.lastWatchedAt).getTime() > STALE_AFTER_MS
     )
-    .sort((a, b) => (a.lastWatchedAt ?? "").localeCompare(b.lastWatchedAt ?? ""));
+    .sort((a, b) => a.lastWatchedAt!.localeCompare(b.lastWatchedAt!));
+  const upNextStaleRows = chunk(upNextStale, STALE_ROW_SIZE);
 
   const airingSoon = shows
     .filter((s) => s.next_episode_to_air)
@@ -129,6 +139,10 @@ export default function HomePage() {
                 <Search size={14} /> Search shows
               </Link>
             </div>
+          ) : upNextRecent.length === 0 && upNextStale.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nothing watched yet — mark an episode to see it here.
+            </p>
           ) : upNextRecent.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Nothing watched recently — check “Haven&apos;t Seen in a While” below.
@@ -138,7 +152,7 @@ export default function HomePage() {
               {upNextRecent.map(({ show, seen, total, next }) => (
                 <ShowProgressCard
                   key={show.id}
-                  href={`/tv/${show.id}/season/${next.season}`}
+                  href={`/tv/${show.id}`}
                   title={show.name}
                   posterPath={show.poster_path}
                   seen={seen}
@@ -154,17 +168,21 @@ export default function HomePage() {
         {upNextStale.length > 0 && (
           <section>
             <h2 className="mb-3 text-base font-bold">Haven&apos;t Seen in a While</h2>
-            <div className="hscroll">
-              {upNextStale.map(({ show, seen, total, next }) => (
-                <ShowProgressCard
-                  key={show.id}
-                  href={`/tv/${show.id}/season/${next.season}`}
-                  title={show.name}
-                  posterPath={show.poster_path}
-                  seen={seen}
-                  total={total}
-                  nextLabel={`${seasonEpisodeLabel(next.season, next.episode)} up next`}
-                />
+            <div className="flex flex-col gap-2.5">
+              {upNextStaleRows.map((row, i) => (
+                <div key={i} className="hscroll">
+                  {row.map(({ show, seen, total }) => (
+                    <ShowProgressCard
+                      key={show.id}
+                      href={`/tv/${show.id}`}
+                      title={show.name}
+                      posterPath={show.poster_path}
+                      seen={seen}
+                      total={total}
+                      compact
+                    />
+                  ))}
+                </div>
               ))}
             </div>
           </section>
