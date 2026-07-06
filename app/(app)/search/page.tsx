@@ -6,7 +6,7 @@ import Topbar from "@/components/topbar";
 import PosterCard from "@/components/poster-card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useTmdb } from "@/lib/hooks";
+import { useLibrary, useTmdb } from "@/lib/hooks";
 import type { TmdbSearchResponse } from "@/lib/tmdb-types";
 import { itemTitle, itemYear } from "@/lib/tmdb-types";
 
@@ -31,6 +31,11 @@ export default function SearchPage() {
 
   const { data, isFetching, error } = useTmdb<TmdbSearchResponse>(
     query.length >= 2 ? `/search?q=${encodeURIComponent(query)}` : null
+  );
+  const { data: library } = useLibrary();
+  const libraryKeys = useMemo(
+    () => new Set((library ?? []).map((i) => `${i.media_type}-${i.tmdb_id}`)),
+    [library]
   );
 
   const filteredResults = useMemo(() => {
@@ -116,6 +121,7 @@ export default function SearchPage() {
               sub={`${r.media_type === "tv" ? "TV" : "Movie"}${
                 itemYear(r) ? ` · ${itemYear(r)}` : ""
               }`}
+              inLibrary={libraryKeys.has(`${r.media_type}-${r.id}`)}
             />
           ))}
         </div>

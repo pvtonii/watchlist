@@ -21,6 +21,10 @@ export default function BottomNav() {
         <Link
           key={href}
           href={href}
+          // replace, not push: tab switches shouldn't stack in history, or the
+          // back button on a detail page unwinds through old tab switches
+          // instead of returning to where you actually drilled in from.
+          replace
           className="tab"
           data-active={
             href === "/" ? pathname === "/" : pathname.startsWith(href)

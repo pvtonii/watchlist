@@ -130,10 +130,17 @@ export default function LibraryPage() {
         const cmp = genreA && genreB ? genreA.localeCompare(genreB) : 0;
         if (cmp !== 0) return cmp;
       } else if (sortBy === "airing") {
-        // soonest upcoming episode first; ended/stale/no-date shows sort to the end
+        // 1) continuing shows before ended ones, no matter what dates say
+        const detailsA = detailsById.get(a.tmdb_id);
+        const detailsB = detailsById.get(b.tmdb_id);
+        const endedA = ENDED_TV_STATUSES.includes(detailsA?.status ?? "");
+        const endedB = ENDED_TV_STATUSES.includes(detailsB?.status ?? "");
+        if (endedA !== endedB) return endedA ? 1 : -1;
+
+        // 2) within continuing shows, soonest upcoming episode first
         const today = new Date().toISOString().slice(0, 10);
-        const rawA = detailsById.get(a.tmdb_id)?.next_episode_to_air?.air_date;
-        const rawB = detailsById.get(b.tmdb_id)?.next_episode_to_air?.air_date;
+        const rawA = detailsA?.next_episode_to_air?.air_date;
+        const rawB = detailsB?.next_episode_to_air?.air_date;
         const dateA = rawA && rawA >= today ? rawA : null;
         const dateB = rawB && rawB >= today ? rawB : null;
         if (!dateA && dateB) return 1;

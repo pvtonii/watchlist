@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Film } from "lucide-react";
+import { Film, Check } from "lucide-react";
 import { tmdbPoster } from "@/lib/config";
 import type { MediaType } from "@/lib/tmdb-types";
 
@@ -13,6 +13,7 @@ export default function PosterCard({
   posterPath,
   sub,
   width,
+  inLibrary,
 }: {
   id: number;
   mediaType: MediaType;
@@ -21,6 +22,8 @@ export default function PosterCard({
   sub?: string;
   /** Fixed width for horizontal rows; omit for fluid width in grids. */
   width?: number;
+  /** Shows a checkmark badge — already in the user's library. */
+  inLibrary?: boolean;
 }) {
   const poster = tmdbPoster(posterPath);
 
@@ -42,6 +45,14 @@ export default function PosterCard({
         ) : (
           <div className="flex h-full items-center justify-center text-muted-foreground">
             <Film size={28} />
+          </div>
+        )}
+        {inLibrary && (
+          <div
+            title="In your list"
+            className="absolute right-1.5 top-1.5 rounded-full bg-primary p-1 text-primary-foreground shadow"
+          >
+            <Check size={12} strokeWidth={3} />
           </div>
         )}
       </div>
