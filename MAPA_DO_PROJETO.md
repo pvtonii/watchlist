@@ -61,8 +61,21 @@
 
 - Filme "assistido" = status `completed` (sem tracking por episódio).
 - Progresso de série = episódios assistidos ÷ total (specials/temporada 0 fora da conta, mas listadas e marcáveis).
-- Marcar um episódio de série fora da lista → série entra automaticamente como `watching`.
-- Tocar de novo no status ativo → remove da lista.
+- Série: só existem 3 botões manuais — Want to Watch / Completed / Dropped. `watching` é
+  **derivado automaticamente**, nunca tocado direto (decidido em 2026-07-06):
+  - Marca 1+ episódio regular sem estar 100% → status vira `watching` (mesmo se estava
+    watchlist/completed/dropped).
+  - Marca todos os episódios regulares → status vira `completed`.
+  - Desmarca 1 episódio de uma série `completed` → volta pra `watching` sozinho.
+  - Tocar em "Completed" manualmente marca TODOS os episódios como assistidos (pede
+    confirmação, `app/(app)/tv/[id]/page.tsx`).
+  - "Dropped" mantém o histórico de episódios assistidos (não apaga `watched_episodes`).
+  - Remover uma série da lista de vez é via botão dedicado "Remove from list" (com
+    confirmação), já que não dá mais pra tocar num chip "Watching" pra tirar da lista.
+- Tocar de novo num chip de status ativo (Want to Watch/Completed/Dropped) → remove da lista.
+- Cor da barra de progresso (My List + tela da série): roxo `#9900FF` = encerrada sem
+  mais episódios, verde `#66CC00` = ainda vai ter episódios novos, `#CB9783` = dropped
+  (ver `showProgressColor` em `lib/config.ts`).
 - Sem sistema de notas na v1 (decidido em 2026-07-04).
 - UI em inglês; dados TMDB em `en-US`.
 

@@ -12,6 +12,7 @@ import {
   useToggleEpisode,
   useMarkSeason,
   useWatchedEpisodes,
+  watchedCountByShow,
   watchedDateByEpisode,
 } from "@/lib/hooks";
 import { fmtDateShort, fmtDateTime } from "@/lib/format";
@@ -55,42 +56,60 @@ export default function SeasonPage({
   const allWatched = episodes.length > 0 && watchedSet.size >= episodes.length;
   const today = new Date().toISOString().slice(0, 10);
 
-  /** Marcar algo assistido adiciona a série como "Watching" se não estiver na lista. */
-  function ensureInLibrary() {
-    const inLibrary = library?.some(
+  const totalRegularEpisodes = show
+    ? show.seasons
+        .filter((s) => s.season_number > 0)
+        .reduce((sum, s) => sum + s.episode_count, 0)
+    : 0;
+  const showWatchedCount = watchedCountByShow(watched).get(showId) ?? 0;
+
+  /**
+   * Keeps the show's library status honest with real progress: full regular-episode
+   * count → Completed, anything less → Watching (Want to Watch/Dropped/no entry all
+   * resume into Watching once you touch an episode). Specials (season 0) never drive
+   * this — they're excluded from the progress math everywhere else too.
+   */
+  function syncShowStatus(newShowWatchedCount: number) {
+    if (!show || seasonNumber === 0) return;
+    const inLibrary = library?.find(
       (i) => i.tmdb_id === showId && i.media_type === "tv"
     );
-    if (!inLibrary && show) {
-      setStatus.mutate({
-        tmdb_id: showId,
-        media_type: "tv",
-        status: "watching",
-        title: show.name,
-        poster_path: show.poster_path,
-        release_date: show.first_air_date || null,
-      });
-    }
+    const isFullyWatched =
+      totalRegularEpisodes > 0 && newShowWatchedCount >= totalRegularEpisodes;
+    const nextStatus = isFullyWatched ? "completed" : "watching";
+    if (inLibrary?.status === nextStatus) return;
+
+    setStatus.mutate({
+      tmdb_id: showId,
+      media_type: "tv",
+      status: nextStatus,
+      title: show.name,
+      poster_path: show.poster_path,
+      release_date: show.first_air_date || null,
+    });
   }
 
   function handleToggle(episodeNumber: number) {
     const watchedNow = watchedSet.has(episodeNumber);
-    if (!watchedNow) ensureInLibrary();
+    const newWatched = !watchedNow;
     toggleEpisode.mutate({
       tmdb_show_id: showId,
       season_number: seasonNumber,
       episode_number: episodeNumber,
-      watched: !watchedNow,
+      watched: newWatched,
     });
+    syncShowStatus(showWatchedCount + (newWatched ? 1 : -1));
   }
 
   function handleMarkAll() {
-    if (!allWatched) ensureInLibrary();
+    const newSeasonCount = allWatched ? 0 : episodes.length;
     markSeason.mutate({
       tmdb_show_id: showId,
       season_number: seasonNumber,
       episode_numbers: episodes.map((e) => e.episode_number),
       watched: !allWatched,
     });
+    syncShowStatus(showWatchedCount + (newSeasonCount - watchedSet.size));
   }
 
   return (

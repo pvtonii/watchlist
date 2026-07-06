@@ -1,30 +1,46 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, CalendarClock } from "lucide-react";
+import { ChevronRight, CalendarClock, Trash2 } from "lucide-react";
 import Topbar from "@/components/topbar";
 import DetailHeader from "@/components/detail-header";
 import CastRow from "@/components/cast-row";
 import ProgressBar from "@/components/progress-bar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   useLibrary,
   useSetStatus,
   useRemoveFromLibrary,
   useTmdb,
   useWatchedEpisodes,
+  useMarkSeason,
   watchedCountBySeason,
 } from "@/lib/hooks";
 import { fmtDate } from "@/lib/format";
 import {
-  LIBRARY_STATUSES,
   STATUS_LABELS,
   showProgressColor,
   type LibraryStatus,
 } from "@/lib/config";
 import { seasonEpisodeLabel } from "@/lib/format";
 import type { TvDetails } from "@/lib/tmdb-types";
+
+// "Watching" is derived automatically from episode progress, never tapped directly.
+const MANUAL_TV_STATUSES: readonly LibraryStatus[] = [
+  "watchlist",
+  "completed",
+  "dropped",
+];
 
 export default function TvPage({
   params,
@@ -39,13 +55,30 @@ export default function TvPage({
   const { data: watched } = useWatchedEpisodes();
   const setStatus = useSetStatus();
   const removeItem = useRemoveFromLibrary();
+  const markSeason = useMarkSeason();
+  const [confirmCompletedOpen, setConfirmCompletedOpen] = useState(false);
+  const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
 
   const item = library?.find(
     (i) => i.tmdb_id === showId && i.media_type === "tv"
   );
-  const busy = setStatus.isPending || removeItem.isPending;
+  const busy = setStatus.isPending || removeItem.isPending || markSeason.isPending;
   const seasonCounts = watchedCountBySeason(watched, showId);
   const barColor = showProgressColor(item?.status, show?.status);
+
+  const regularSeasons =
+    show?.seasons
+      .filter((s) => s.season_number > 0)
+      .sort((a, b) => a.season_number - b.season_number) ?? [];
+  const specials = show?.seasons.filter((s) => s.season_number === 0) ?? [];
+  const totalEpisodes = regularSeasons.reduce(
+    (sum, s) => sum + s.episode_count,
+    0
+  );
+  const totalWatched = regularSeasons.reduce(
+    (sum, s) => sum + Math.min(seasonCounts.get(s.season_number) ?? 0, s.episode_count),
+    0
+  );
 
   function toggle(status: LibraryStatus) {
     if (!show) return;
@@ -63,19 +96,45 @@ export default function TvPage({
     }
   }
 
-  const regularSeasons =
-    show?.seasons
-      .filter((s) => s.season_number > 0)
-      .sort((a, b) => a.season_number - b.season_number) ?? [];
-  const specials = show?.seasons.filter((s) => s.season_number === 0) ?? [];
-  const totalEpisodes = regularSeasons.reduce(
-    (sum, s) => sum + s.episode_count,
-    0
-  );
-  const totalWatched = regularSeasons.reduce(
-    (sum, s) => sum + Math.min(seasonCounts.get(s.season_number) ?? 0, s.episode_count),
-    0
-  );
+  /** Tapping "Completed" marks every episode watched — confirm first. */
+  function handleStatusClick(status: LibraryStatus) {
+    if (status === "completed" && item?.status !== "completed") {
+      setConfirmCompletedOpen(true);
+      return;
+    }
+    toggle(status);
+  }
+
+  async function confirmMarkCompleted() {
+    if (!show) return;
+    await Promise.all(
+      regularSeasons.map((s) =>
+        markSeason.mutateAsync({
+          tmdb_show_id: showId,
+          season_number: s.season_number,
+          episode_numbers: Array.from(
+            { length: s.episode_count },
+            (_, i) => i + 1
+          ),
+          watched: true,
+        })
+      )
+    );
+    setStatus.mutate({
+      tmdb_id: showId,
+      media_type: "tv",
+      status: "completed",
+      title: show.name,
+      poster_path: show.poster_path,
+      release_date: show.first_air_date || null,
+    });
+    setConfirmCompletedOpen(false);
+  }
+
+  function confirmRemove() {
+    removeItem.mutate({ tmdb_id: showId, media_type: "tv" });
+    setConfirmRemoveOpen(false);
+  }
 
   return (
     <>
@@ -103,13 +162,13 @@ export default function TvPage({
               ]}
             />
 
-            {/* status chips — tocar de novo remove da lista */}
-            <div className="grid grid-cols-2 gap-2">
-              {LIBRARY_STATUSES.map((status) => (
+            {/* status chips — tocar de novo remove da lista. "Watching" é automático. */}
+            <div className="grid grid-cols-3 gap-2">
+              {MANUAL_TV_STATUSES.map((status) => (
                 <button
                   key={status}
                   disabled={busy}
-                  onClick={() => toggle(status)}
+                  onClick={() => handleStatusClick(status)}
                   className={`h-10 rounded-xl text-sm font-bold transition-colors disabled:opacity-60 ${
                     item?.status === status
                       ? "bg-primary text-primary-foreground"
@@ -120,6 +179,22 @@ export default function TvPage({
                 </button>
               ))}
             </div>
+
+            {item?.status === "watching" && (
+              <p className="-mt-3 text-center text-xs font-semibold text-primary">
+                Watching — updates automatically as you mark episodes
+              </p>
+            )}
+
+            {item && (
+              <button
+                onClick={() => setConfirmRemoveOpen(true)}
+                disabled={busy}
+                className="-mt-3 flex items-center justify-center gap-1.5 text-xs font-semibold text-muted-foreground disabled:opacity-60"
+              >
+                <Trash2 size={13} /> Remove from list
+              </button>
+            )}
 
             {/* progresso geral */}
             {totalEpisodes > 0 && (
@@ -200,6 +275,55 @@ export default function TvPage({
             )}
 
             <CastRow cast={show.credits?.cast ?? []} />
+
+            <Dialog
+              open={confirmCompletedOpen}
+              onOpenChange={setConfirmCompletedOpen}
+            >
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Mark all episodes watched?</DialogTitle>
+                  <DialogDescription>
+                    This marks every episode of {show.name} as watched and
+                    moves it to Completed.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setConfirmCompletedOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button onClick={confirmMarkCompleted} disabled={busy}>
+                    Mark all watched
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={confirmRemoveOpen} onOpenChange={setConfirmRemoveOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Remove from My List?</DialogTitle>
+                  <DialogDescription>
+                    {show.name} will be removed from your list. Your watched
+                    episodes stay recorded, in case you add it back later.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setConfirmRemoveOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button variant="destructive" onClick={confirmRemove}>
+                    Remove
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </>
         )}
       </main>
