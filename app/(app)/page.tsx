@@ -102,7 +102,7 @@ export default function HomePage() {
     .filter(
       (x) => x.lastWatchedAt && now - new Date(x.lastWatchedAt).getTime() > STALE_AFTER_MS
     )
-    .sort((a, b) => a.lastWatchedAt!.localeCompare(b.lastWatchedAt!));
+    .sort((a, b) => b.lastWatchedAt!.localeCompare(a.lastWatchedAt!));
   const upNextStaleRows = chunk(upNextStale, STALE_ROW_SIZE);
 
   const airingSoon = shows
