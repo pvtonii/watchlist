@@ -130,9 +130,12 @@ export default function LibraryPage() {
         const cmp = genreA && genreB ? genreA.localeCompare(genreB) : 0;
         if (cmp !== 0) return cmp;
       } else if (sortBy === "airing") {
-        // soonest upcoming episode first; shows with no upcoming episode sort to the end
-        const dateA = detailsById.get(a.tmdb_id)?.next_episode_to_air?.air_date;
-        const dateB = detailsById.get(b.tmdb_id)?.next_episode_to_air?.air_date;
+        // soonest upcoming episode first; ended/stale/no-date shows sort to the end
+        const today = new Date().toISOString().slice(0, 10);
+        const rawA = detailsById.get(a.tmdb_id)?.next_episode_to_air?.air_date;
+        const rawB = detailsById.get(b.tmdb_id)?.next_episode_to_air?.air_date;
+        const dateA = rawA && rawA >= today ? rawA : null;
+        const dateB = rawB && rawB >= today ? rawB : null;
         if (!dateA && dateB) return 1;
         if (dateA && !dateB) return -1;
         if (dateA && dateB && dateA !== dateB) return dateA.localeCompare(dateB);
