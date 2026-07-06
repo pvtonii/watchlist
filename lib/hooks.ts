@@ -8,7 +8,7 @@ import {
 } from "@tanstack/react-query";
 import { getSupabase } from "@/lib/supabase/client";
 import type { LibraryStatus } from "@/lib/config";
-import type { MediaType, TvDetails } from "@/lib/tmdb-types";
+import type { MediaType, MovieDetails, TvDetails } from "@/lib/tmdb-types";
 
 /* ---------------- Types (DB rows) ---------------- */
 
@@ -55,6 +55,17 @@ export function useTvDetailsMany(ids: number[]) {
     queries: ids.map((id) => ({
       queryKey: ["tmdb", `/tv/${id}`],
       queryFn: () => fetchJson<TvDetails>(`/api/tmdb/tv/${id}`),
+      staleTime: 15 * 60_000,
+    })),
+  });
+}
+
+/** Details of several movies at once (Library genre/year). */
+export function useMovieDetailsMany(ids: number[]) {
+  return useQueries({
+    queries: ids.map((id) => ({
+      queryKey: ["tmdb", `/movie/${id}`],
+      queryFn: () => fetchJson<MovieDetails>(`/api/tmdb/movie/${id}`),
       staleTime: 15 * 60_000,
     })),
   });

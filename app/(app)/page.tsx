@@ -16,7 +16,7 @@ import {
   watchedCountByShow,
 } from "@/lib/hooks";
 import { APP_NAME, tmdbPoster } from "@/lib/config";
-import { fmtDateShort, seasonEpisodeLabel } from "@/lib/format";
+import { fmtDate, fmtDateShort, seasonEpisodeLabel } from "@/lib/format";
 import type { TvDetails, UpcomingResponse } from "@/lib/tmdb-types";
 import { itemTitle } from "@/lib/tmdb-types";
 
@@ -55,14 +55,26 @@ export default function HomePage() {
       ),
     [library]
   );
-  const detailQueries = useTvDetailsMany(watchingShows.map((i) => i.tmdb_id));
+  /** Watching + Want to Watch: any show whose new episodes are worth surfacing. */
+  const trackedTvShows = useMemo(
+    () =>
+      (library ?? []).filter(
+        (i) =>
+          i.media_type === "tv" &&
+          (i.status === "watching" || i.status === "watchlist")
+      ),
+    [library]
+  );
+  const detailQueries = useTvDetailsMany(trackedTvShows.map((i) => i.tmdb_id));
   const counts = watchedCountByShow(watched);
 
   const shows = detailQueries
     .map((q) => q.data)
     .filter((s): s is TvDetails => Boolean(s));
+  const watchingShowIds = new Set(watchingShows.map((i) => i.tmdb_id));
 
   const upNext = shows
+    .filter((show) => watchingShowIds.has(show.id))
     .map((show) => {
       const total = regularTotal(show);
       const seen = counts.get(show.id) ?? 0;
@@ -177,7 +189,7 @@ export default function HomePage() {
                   mediaType="movie"
                   title={itemTitle(m)}
                   posterPath={m.poster_path}
-                  sub={fmtDateShort(m.release_date)}
+                  sub={fmtDate(m.release_date)}
                   width={108}
                 />
               ))}
@@ -197,7 +209,7 @@ export default function HomePage() {
                   mediaType="movie"
                   title={item.title}
                   posterPath={item.poster_path}
-                  sub={fmtDateShort(item.release_date)}
+                  sub={fmtDate(item.release_date)}
                   width={108}
                 />
               ))}

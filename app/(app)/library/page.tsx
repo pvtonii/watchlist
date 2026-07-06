@@ -11,16 +11,19 @@ import {
   useLibrary,
   useWatchedEpisodes,
   useTvDetailsMany,
+  useMovieDetailsMany,
   watchedCountByShow,
 } from "@/lib/hooks";
 import {
+  ENDED_TV_STATUSES,
   LIBRARY_STATUSES,
+  SHOW_PROGRESS_COLORS,
   STATUS_LABELS,
   tmdbPoster,
   type LibraryStatus,
 } from "@/lib/config";
-import { fmtDateTime } from "@/lib/format";
-import type { TvDetails } from "@/lib/tmdb-types";
+import { fmtDateTime, fmtMonthYear } from "@/lib/format";
+import type { MovieDetails, TvDetails } from "@/lib/tmdb-types";
 
 const MEDIA_TYPES = ["tv", "movie"] as const;
 type MediaTypeFilter = (typeof MEDIA_TYPES)[number];
@@ -31,13 +34,18 @@ const MEDIA_TYPE_LABELS: Record<MediaTypeFilter, string> = {
 
 // Movies only ever get "watchlist"/"completed" (see lib/config.ts); no per-episode "watching" or "dropped".
 const MOVIE_STATUSES: readonly LibraryStatus[] = ["watchlist", "completed"];
-const STATUSES_BY_MEDIA_TYPE: Record<MediaTypeFilter, readonly LibraryStatus[]> = {
-  tv: LIBRARY_STATUSES,
-  movie: MOVIE_STATUSES,
+type StatusFilter = LibraryStatus | "all";
+const STATUSES_BY_MEDIA_TYPE: Record<MediaTypeFilter, readonly StatusFilter[]> = {
+  tv: ["all", ...LIBRARY_STATUSES],
+  movie: ["all", ...MOVIE_STATUSES],
+};
+const TAB_LABELS: Record<StatusFilter, string> = {
+  all: "All",
+  ...STATUS_LABELS,
 };
 
 export default function LibraryPage() {
-  const [tab, setTab] = useState<LibraryStatus>("watching");
+  const [tab, setTab] = useState<StatusFilter>("watching");
   const [mediaType, setMediaType] = useState<MediaTypeFilter>("tv");
   const { data: library, isLoading } = useLibrary();
   const { data: watched } = useWatchedEpisodes();
@@ -52,17 +60,26 @@ export default function LibraryPage() {
   const items = useMemo(
     () =>
       (library ?? []).filter(
-        (i) => i.status === tab && i.media_type === mediaType
+        (i) =>
+          (tab === "all" || i.status === tab) && i.media_type === mediaType
       ),
     [library, tab, mediaType]
   );
   const tvIds = items
     .filter((i) => i.media_type === "tv")
     .map((i) => i.tmdb_id);
+  const movieIds = items
+    .filter((i) => i.media_type === "movie")
+    .map((i) => i.tmdb_id);
   const detailQueries = useTvDetailsMany(tvIds);
+  const movieDetailQueries = useMovieDetailsMany(movieIds);
   const detailsById = new Map<number, TvDetails>();
   for (const q of detailQueries) {
     if (q.data) detailsById.set(q.data.id, q.data);
+  }
+  const movieDetailsById = new Map<number, MovieDetails>();
+  for (const q of movieDetailQueries) {
+    if (q.data) movieDetailsById.set(q.data.id, q.data);
   }
   const counts = watchedCountByShow(watched);
 
@@ -99,7 +116,7 @@ export default function LibraryPage() {
                   : "bg-secondary text-muted-foreground"
               }`}
             >
-              {STATUS_LABELS[status]}
+              {TAB_LABELS[status]}
             </button>
           ))}
         </div>
@@ -110,7 +127,7 @@ export default function LibraryPage() {
           <div className="mt-12 flex flex-col items-center gap-2 text-muted-foreground">
             <Clapperboard size={28} />
             <p className="text-sm">
-              Nothing in “{STATUS_LABELS[tab]}” for {MEDIA_TYPE_LABELS[mediaType]} yet.
+              Nothing in “{TAB_LABELS[tab]}” for {MEDIA_TYPE_LABELS[mediaType]} yet.
             </p>
             <Link href="/search" className="text-sm font-bold text-primary">
               Find something to watch
@@ -123,12 +140,31 @@ export default function LibraryPage() {
             const poster = tmdbPoster(item.poster_path, "w185");
             const details =
               item.media_type === "tv" ? detailsById.get(item.tmdb_id) : null;
+            const movieDetails =
+              item.media_type === "movie"
+                ? movieDetailsById.get(item.tmdb_id)
+                : null;
+            const genre = (details ?? movieDetails)?.genres[0]?.name;
             const total = details
               ? details.seasons
                   .filter((s) => s.season_number > 0)
                   .reduce((sum, s) => sum + s.episode_count, 0)
               : 0;
             const seen = counts.get(item.tmdb_id) ?? 0;
+
+            let barColor: string | undefined;
+            if (item.media_type === "tv") {
+              if (item.status === "dropped") {
+                barColor = SHOW_PROGRESS_COLORS.dropped;
+              } else if (item.status === "watching" || item.status === "completed") {
+                const ended = details
+                  ? ENDED_TV_STATUSES.includes(details.status)
+                  : false;
+                barColor = ended
+                  ? SHOW_PROGRESS_COLORS.ended
+                  : SHOW_PROGRESS_COLORS.continuing;
+              }
+            }
 
             return (
               <Link
@@ -154,10 +190,9 @@ export default function LibraryPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold">{item.title}</p>
                   <p className="text-xs text-muted-foreground">
-                    {item.media_type === "tv" ? "TV Show" : "Movie"}
-                    {item.release_date
-                      ? ` · ${item.release_date.slice(0, 4)}`
-                      : ""}
+                    {[genre, fmtMonthYear(item.release_date)]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </p>
                   {item.status === "completed" && (
                     <p className="text-[11px] text-primary">
@@ -167,7 +202,11 @@ export default function LibraryPage() {
                   {item.media_type === "tv" && total > 0 && (
                     <>
                       <div className="mt-1.5">
-                        <ProgressBar value={Math.min(seen, total)} max={total} />
+                        <ProgressBar
+                          value={Math.min(seen, total)}
+                          max={total}
+                          color={barColor}
+                        />
                       </div>
                       <p className="mt-1 text-[11px] text-muted-foreground">
                         {Math.min(seen, total)}/{total} episodes

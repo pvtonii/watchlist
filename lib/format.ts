@@ -22,6 +22,14 @@ export function seasonEpisodeLabel(season: number, episode: number): string {
   return `S${season} · E${episode}`;
 }
 
+/** "2026-07-10" → "Jul 2026" (no day, for compact library cards). */
+export function fmtMonthYear(date: string | null | undefined): string {
+  if (!date) return "";
+  const d = new Date(`${date}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+}
+
 /** ISO timestamp (e.g. "2026-07-10T14:32:00Z") → "Jul 10, 2026". */
 export function fmtDateTime(timestamp: string | null | undefined): string {
   if (!timestamp) return "TBA";
