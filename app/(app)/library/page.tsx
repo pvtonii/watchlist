@@ -28,11 +28,25 @@ const MEDIA_TYPE_LABELS: Record<MediaTypeFilter, string> = {
   movie: "Movies",
 };
 
+// Movies only ever get "watchlist"/"completed" (see lib/config.ts); no per-episode "watching" or "dropped".
+const MOVIE_STATUSES: readonly LibraryStatus[] = ["watchlist", "completed"];
+const STATUSES_BY_MEDIA_TYPE: Record<MediaTypeFilter, readonly LibraryStatus[]> = {
+  tv: LIBRARY_STATUSES,
+  movie: MOVIE_STATUSES,
+};
+
 export default function LibraryPage() {
   const [tab, setTab] = useState<LibraryStatus>("watching");
   const [mediaType, setMediaType] = useState<MediaTypeFilter>("tv");
   const { data: library, isLoading } = useLibrary();
   const { data: watched } = useWatchedEpisodes();
+
+  const statuses = STATUSES_BY_MEDIA_TYPE[mediaType];
+
+  function selectMediaType(type: MediaTypeFilter) {
+    setMediaType(type);
+    if (!STATUSES_BY_MEDIA_TYPE[type].includes(tab)) setTab("watchlist");
+  }
 
   const items = useMemo(
     () =>
@@ -60,7 +74,7 @@ export default function LibraryPage() {
           {MEDIA_TYPES.map((type) => (
             <button
               key={type}
-              onClick={() => setMediaType(type)}
+              onClick={() => selectMediaType(type)}
               className={`rounded-full py-1.5 text-xs font-bold transition-colors ${
                 mediaType === type
                   ? "bg-primary text-primary-foreground"
@@ -74,7 +88,7 @@ export default function LibraryPage() {
 
         {/* tabs por status */}
         <div className="mb-4 flex gap-2 overflow-x-auto">
-          {LIBRARY_STATUSES.map((status) => (
+          {statuses.map((status) => (
             <button
               key={status}
               onClick={() => setTab(status)}
