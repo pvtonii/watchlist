@@ -7,7 +7,7 @@
 import type { TvDetails } from "./tmdb-types";
 
 export const APP_NAME = "WatchList";
-export const APP_VERSION = "1.9.0";
+export const APP_VERSION = "1.9.1";
 export const APP_RELEASE_DATE = "2026-07-06";
 
 /** Must match the topbar/background color in globals.css (--bg-deep). */
@@ -54,6 +54,20 @@ export function regularEpisodeTotal(show: TvDetails): number {
   return show.seasons
     .filter((s) => s.season_number > 0)
     .reduce((sum, s) => sum + s.episode_count, 0);
+}
+
+/**
+ * Regular episodes actually released so far, based on `last_episode_to_air`.
+ * Unlike `regularEpisodeTotal`, this doesn't overcount an in-progress season
+ * whose full episode count TMDB already lists before every episode has aired.
+ */
+export function releasedEpisodeCount(show: TvDetails): number {
+  const last = show.last_episode_to_air;
+  if (!last || last.season_number <= 0) return 0;
+  const priorSeasons = show.seasons
+    .filter((s) => s.season_number > 0 && s.season_number < last.season_number)
+    .reduce((sum, s) => sum + s.episode_count, 0);
+  return priorSeasons + last.episode_number;
 }
 
 /** Progress bar color for a show, based on your library status + its air status. */

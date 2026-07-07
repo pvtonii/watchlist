@@ -83,8 +83,13 @@
   título/legenda, `STALE_ROW_SIZE`), ordenadas da mais abandonada pra menos.
   Séries nunca assistidas (status Watching sem nenhum episódio marcado)
   ficam fora da Home inteira — não aparecem em nenhuma das duas seções.
-- My List: sort "Up to Date" agrupa séries em dia (assistiu tudo que já saiu)
-  antes das atrasadas, ordenando por data do último episódio lançado.
+- My List: sort "Up to Date" filtra pra séries não-encerradas onde você já
+  assistiu tudo que **realmente já saiu** (`releasedEpisodeCount` em
+  `lib/config.ts`, baseado em `last_episode_to_air` — não no total bruto do
+  TMDB, que às vezes já lista a temporada inteira antes de ela ir ao ar),
+  ordenando pela data que você assistiu por último. Sort "New Ep" mostra
+  séries com episódio novo pra você (já lançado e não assistido, ou
+  confirmado pra sair), ordenado pela data de lançamento desse episódio.
 - Sem sistema de notas na v1 (decidido em 2026-07-04).
 - UI em inglês; dados TMDB em `en-US`.
 

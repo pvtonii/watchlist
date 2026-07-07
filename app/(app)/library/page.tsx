@@ -14,11 +14,13 @@ import {
   useTvDetailsMany,
   useMovieDetailsMany,
   watchedCountByShow,
+  lastWatchedByShow,
 } from "@/lib/hooks";
 import {
   ENDED_TV_STATUSES,
   LIBRARY_STATUSES,
   regularEpisodeTotal,
+  releasedEpisodeCount,
   showProgressColor,
   STATUS_LABELS,
   tmdbPoster,
@@ -170,17 +172,31 @@ export default function LibraryPage() {
     return map;
   }, [movieDetailQueries]);
   const counts = watchedCountByShow(watched);
+  const lastWatched = lastWatchedByShow(watched);
 
   const sortedItems = useMemo(() => {
     if (sortBy === "airing") {
-      // only shows with a confirmed upcoming episode, soonest first
+      // Anything "new for you to watch": episodes already released that you
+      // haven't seen yet, or a confirmed upcoming episode. Sorted by that
+      // episode's release date — already-out-but-unwatched episodes (a past
+      // date) naturally come before still-upcoming ones (a future date).
       const today = new Date().toISOString().slice(0, 10);
       return items
-        .map((item) => ({
-          item,
-          date: detailsById.get(item.tmdb_id)?.next_episode_to_air?.air_date ?? null,
-        }))
-        .filter((x) => x.date && x.date >= today)
+        .map((item) => {
+          const details = detailsById.get(item.tmdb_id);
+          const released = details ? releasedEpisodeCount(details) : 0;
+          const seen = counts.get(item.tmdb_id) ?? 0;
+          const behind = Boolean(details) && seen < released;
+          const nextDate = details?.next_episode_to_air?.air_date ?? null;
+          const hasUpcoming = Boolean(nextDate && nextDate >= today);
+          const date = behind
+            ? (details?.last_episode_to_air?.air_date ?? null)
+            : hasUpcoming
+              ? nextDate
+              : null;
+          return { item, date, include: behind || hasUpcoming };
+        })
+        .filter((x) => x.include && x.date)
         .sort(
           (a, b) =>
             a.date!.localeCompare(b.date!) || a.item.title.localeCompare(b.item.title)
@@ -188,34 +204,33 @@ export default function LibraryPage() {
         .map((x) => x.item);
     }
 
-    const arr = [...items];
-    arr.sort((a, b) => {
-      if (sortBy === "upToDate") {
-        const detailsA = detailsById.get(a.tmdb_id);
-        const detailsB = detailsById.get(b.tmdb_id);
-        // still-loading items sort to the end
-        if (!detailsA && detailsB) return 1;
-        if (detailsA && !detailsB) return -1;
+    if (sortBy === "upToDate") {
+      // Still-continuing shows where you've watched everything released so
+      // far, most recently watched first.
+      return items
+        .map((item) => {
+          const details = detailsById.get(item.tmdb_id);
+          const ended = details ? ENDED_TV_STATUSES.includes(details.status) : true;
+          const released = details ? releasedEpisodeCount(details) : 0;
+          const seen = counts.get(item.tmdb_id) ?? 0;
+          const upToDate = Boolean(details) && !ended && seen >= released;
+          const watchedAt = lastWatched.get(item.tmdb_id) ?? null;
+          return { item, upToDate, watchedAt };
+        })
+        .filter((x) => x.upToDate)
+        .sort((a, b) => {
+          if (!a.watchedAt && b.watchedAt) return 1;
+          if (a.watchedAt && !b.watchedAt) return -1;
+          if (a.watchedAt && b.watchedAt && a.watchedAt !== b.watchedAt) {
+            return b.watchedAt.localeCompare(a.watchedAt);
+          }
+          return a.item.title.localeCompare(b.item.title);
+        })
+        .map((x) => x.item);
+    }
 
-        if (detailsA && detailsB) {
-          const totalA = regularEpisodeTotal(detailsA);
-          const totalB = regularEpisodeTotal(detailsB);
-          const upToDateA = totalA > 0 && (counts.get(a.tmdb_id) ?? 0) >= totalA;
-          const upToDateB = totalB > 0 && (counts.get(b.tmdb_id) ?? 0) >= totalB;
-          if (upToDateA !== upToDateB) return upToDateA ? -1 : 1; // caught up first
-
-          // within each group, most recently aired episode first
-          const lastA = detailsA.last_episode_to_air?.air_date;
-          const lastB = detailsB.last_episode_to_air?.air_date;
-          if (!lastA && lastB) return 1;
-          if (lastA && !lastB) return -1;
-          if (lastA && lastB && lastA !== lastB) return lastB.localeCompare(lastA);
-        }
-      }
-      return a.title.localeCompare(b.title);
-    });
-    return arr;
-  }, [items, sortBy, detailsById, counts]);
+    return [...items].sort((a, b) => a.title.localeCompare(b.title));
+  }, [items, sortBy, detailsById, counts, lastWatched]);
 
   return (
     <>
@@ -287,8 +302,10 @@ export default function LibraryPage() {
             <Clapperboard size={28} />
             <p className="text-sm">
               {sortBy === "airing" && items.length > 0
-                ? "No confirmed upcoming episodes in this list yet."
-                : `Nothing in “${TAB_LABELS[tab]}” for ${MEDIA_TYPE_LABELS[mediaType]} yet.`}
+                ? "Nothing new to watch in this list yet."
+                : sortBy === "upToDate" && items.length > 0
+                  ? "No continuing shows fully caught up in this list yet."
+                  : `Nothing in “${TAB_LABELS[tab]}” for ${MEDIA_TYPE_LABELS[mediaType]} yet.`}
             </p>
             <Link href="/search" className="text-sm font-bold text-primary">
               Find something to watch
