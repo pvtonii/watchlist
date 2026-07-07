@@ -178,8 +178,7 @@ export default function LibraryPage() {
     if (sortBy === "airing") {
       // Anything "new for you to watch": episodes already released that you
       // haven't seen yet, or a confirmed upcoming episode. Sorted by that
-      // episode's release date — already-out-but-unwatched episodes (a past
-      // date) naturally come before still-upcoming ones (a future date).
+      // episode's release date, most recent first.
       const today = new Date().toISOString().slice(0, 10);
       return items
         .map((item) => {
@@ -199,7 +198,7 @@ export default function LibraryPage() {
         .filter((x) => x.include && x.date)
         .sort(
           (a, b) =>
-            a.date!.localeCompare(b.date!) || a.item.title.localeCompare(b.item.title)
+            b.date!.localeCompare(a.date!) || a.item.title.localeCompare(b.item.title)
         )
         .map((x) => x.item);
     }
