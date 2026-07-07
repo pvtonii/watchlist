@@ -70,9 +70,12 @@ export interface TvDetails {
   number_of_seasons: number;
   number_of_episodes: number;
   genres: { id: number; name: string }[];
+  networks: { id: number; name: string; logo_path: string | null }[];
   seasons: SeasonSummary[];
   next_episode_to_air: EpisodeStub | null;
   last_episode_to_air: EpisodeStub | null;
+  /** Typical episode length(s) in minutes, per TMDB (often a single value). */
+  episode_run_time: number[];
   credits?: { cast: CastMember[] };
 }
 

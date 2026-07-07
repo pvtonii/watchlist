@@ -62,7 +62,7 @@
 
 - Filme "assistido" = status `completed` (sem tracking por episódio).
 - Progresso de série = episódios assistidos ÷ total (specials/temporada 0 fora da conta, mas listadas e marcáveis).
-- Série: só existem 3 botões manuais — Want to Watch / Completed / Dropped. `watching` é
+- Série: só existem 3 botões manuais — Want to Watch / Completed / Stopped. `watching` é
   **derivado automaticamente**, nunca tocado direto (decidido em 2026-07-06):
   - Marca 1+ episódio regular sem estar em dia → status vira `watching` (mesmo se estava
     watchlist/completed/dropped).
@@ -81,12 +81,12 @@
     Episodes também lista séries `completed` ainda no ar com `next_episode_to_air`.
   - Tocar em "Completed" manualmente marca TODOS os episódios como assistidos (pede
     confirmação, `app/(app)/tv/[id]/page.tsx`).
-  - "Dropped" mantém o histórico de episódios assistidos (não apaga `watched_episodes`).
+  - "Stopped" mantém o histórico de episódios assistidos (não apaga `watched_episodes`).
   - Remover uma série da lista de vez é via botão dedicado "Remove from list" (com
     confirmação), já que não dá mais pra tocar num chip "Watching" pra tirar da lista.
-- Tocar de novo num chip de status ativo (Want to Watch/Completed/Dropped) → remove da lista.
+- Tocar de novo num chip de status ativo (Want to Watch/Completed/Stopped) → remove da lista.
 - Cor da barra de progresso (My List + tela da série): roxo `#9900FF` = encerrada sem
-  mais episódios, verde `#66CC00` = ainda vai ter episódios novos, `#CB9783` = dropped
+  mais episódios, verde `#66CC00` = ainda vai ter episódios novos, `#E50914` = Stopped
   (ver `showProgressColor` em `lib/config.ts`).
 - Home > Up Next: só mostra séries assistidas nos últimos 30 dias
   (`STALE_AFTER_MS` em `app/(app)/page.tsx`); as assistidas antes disso caem
@@ -103,6 +103,13 @@
   Sort: Last Watched (padrão) / Last Added / A-Z, iguais pra série e filme.
   Last Watched = `watched_at` mais recente da série (TV) ou data que o filme foi
   marcado completed (`updated_at`); sem histórico fica por último.
+- Profile > stats (estilo TV Time, `app/(app)/profile/page.tsx`): tempo assistido é
+  aproximado — `episode_run_time` médio do TMDB por série (fallback 45min se a série
+  não informar) × episódios assistidos (specials contam aqui, diferente do resto do
+  app); filme usa `runtime` do TMDB (fallback 100min). "Remaining Episodes" soma
+  episódios já lançados e não assistidos em toda série salva **exceto Stopped**.
+  "Top Networks"/"Top Genres" contam em cima de **todas** as séries salvas, qualquer
+  status (não exclui Stopped).
 - Sem sistema de notas na v1 (decidido em 2026-07-04).
 - UI em inglês; dados TMDB em `en-US`.
 

@@ -62,7 +62,7 @@ export default function SeasonPage({
   /**
    * Keeps the show's library status honest with real progress: caught up on
    * everything released so far → Completed, anything less → Watching (Want
-   * to Watch/Dropped/no entry all resume into Watching once you touch an
+   * to Watch/Stopped/no entry all resume into Watching once you touch an
    * episode). Uses episodes actually released (not TMDB's full listed total,
    * which can include a season's not-yet-aired episodes) — see
    * deriveTvLibraryStatus. Specials (season 0) never drive this.

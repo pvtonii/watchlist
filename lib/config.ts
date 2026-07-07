@@ -7,7 +7,7 @@
 import type { TvDetails } from "./tmdb-types";
 
 export const APP_NAME = "WatchList";
-export const APP_VERSION = "1.12.0";
+export const APP_VERSION = "1.13.0";
 export const APP_RELEASE_DATE = "2026-07-06";
 
 /** Must match the topbar/background color in globals.css (--bg-deep). */
@@ -33,7 +33,7 @@ export const STATUS_LABELS: Record<LibraryStatus, string> = {
   watchlist: "Want to Watch",
   watching: "Watching",
   completed: "Completed",
-  dropped: "Dropped",
+  dropped: "Stopped",
 };
 
 /** Progress bar colors on My List TV cards, based on the show's air status. */
@@ -42,7 +42,7 @@ export const SHOW_PROGRESS_COLORS = {
   ended: "#9900FF",
   /** Watching/Completed, and the show is still airing/renewed. */
   continuing: "#66CC00",
-  /** Dropped. Netflix red. */
+  /** Stopped. Netflix red. */
   dropped: "#E50914",
 } as const;
 
