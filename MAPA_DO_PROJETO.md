@@ -32,6 +32,7 @@
 | Clientes Supabase (browser / server) | `lib/supabase/client.ts` / `lib/supabase/server.ts` |
 | **Schema do banco + RLS** | `supabase/schema.sql` |
 | Bottom nav (fixa, filha direta do body — NÃO mover pra dentro do #app) | `components/bottom-nav.tsx` |
+| Reconciliação de status Watching/Completed (roda 1x por load do app) | `components/tv-status-sync.tsx` + `useSyncTvStatuses` em `lib/hooks.ts` |
 | Topbar (sticky, com botão voltar) | `components/topbar.tsx` |
 | Card de pôster (busca/home) | `components/poster-card.tsx` |
 | Card grande com barra de progresso na borda (Home > Up Next) | `components/show-progress-card.tsx` |
@@ -64,10 +65,18 @@
 - Progresso de série = episódios assistidos ÷ total (specials/temporada 0 fora da conta, mas listadas e marcáveis).
 - Série: só existem 3 botões manuais — Want to Watch / Completed / Dropped. `watching` é
   **derivado automaticamente**, nunca tocado direto (decidido em 2026-07-06):
-  - Marca 1+ episódio regular sem estar 100% → status vira `watching` (mesmo se estava
+  - Marca 1+ episódio regular sem estar em dia → status vira `watching` (mesmo se estava
     watchlist/completed/dropped).
-  - Marca todos os episódios regulares → status vira `completed`.
+  - Fica em dia com **tudo que já foi lançado** (não o total bruto do TMDB — ver
+    `deriveTvLibraryStatus`/`releasedEpisodeCount` em `lib/config.ts`) → status vira
+    `completed`, mesmo que a série ainda esteja no ar (decidido em 2026-07-06: "em dia"
+    conta como completed até sair um episódio novo).
   - Desmarca 1 episódio de uma série `completed` → volta pra `watching` sozinho.
+  - Quando sai um episódio novo pra uma série `completed`, ela some do "em dia" a partir
+    do próximo carregamento do app — não tem trigger em tempo real, é reconciliado
+    reativamente por `useSyncTvStatuses` (`lib/hooks.ts`), montado uma vez em
+    `components/tv-status-sync.tsx` dentro de `app/(app)/layout.tsx`, checando toda série
+    `watching`/`completed` contra o TMDB e corrigindo o status se estiver desatualizado.
   - Tocar em "Completed" manualmente marca TODOS os episódios como assistidos (pede
     confirmação, `app/(app)/tv/[id]/page.tsx`).
   - "Dropped" mantém o histórico de episódios assistidos (não apaga `watched_episodes`).
@@ -83,11 +92,7 @@
   título/legenda, `STALE_ROW_SIZE`), ordenadas da mais abandonada pra menos.
   Séries nunca assistidas (status Watching sem nenhum episódio marcado)
   ficam fora da Home inteira — não aparecem em nenhuma das duas seções.
-- My List: sort "Up to Date" filtra pra séries não-encerradas onde você já
-  assistiu tudo que **realmente já saiu** (`releasedEpisodeCount` em
-  `lib/config.ts`, baseado em `last_episode_to_air` — não no total bruto do
-  TMDB, que às vezes já lista a temporada inteira antes de ela ir ao ar),
-  ordenando pela data que você assistiu por último. Sort "New Ep" mostra
+- My List: sort "New Ep" mostra
   séries com episódio novo pra você (já lançado e não assistido, ou
   confirmado pra sair), ordenado pela data de lançamento desse episódio
   (mais recente primeiro). Filmes usam sort "Release Date" por padrão

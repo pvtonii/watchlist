@@ -16,6 +16,7 @@ import {
   watchedDateByEpisode,
 } from "@/lib/hooks";
 import { fmtDateShort, fmtDateTime } from "@/lib/format";
+import { deriveTvLibraryStatus } from "@/lib/config";
 import type { SeasonDetails, TvDetails } from "@/lib/tmdb-types";
 
 export default function SeasonPage({
@@ -56,27 +57,22 @@ export default function SeasonPage({
   const allWatched = episodes.length > 0 && watchedSet.size >= episodes.length;
   const today = new Date().toISOString().slice(0, 10);
 
-  const totalRegularEpisodes = show
-    ? show.seasons
-        .filter((s) => s.season_number > 0)
-        .reduce((sum, s) => sum + s.episode_count, 0)
-    : 0;
   const showWatchedCount = watchedCountByShow(watched).get(showId) ?? 0;
 
   /**
-   * Keeps the show's library status honest with real progress: full regular-episode
-   * count → Completed, anything less → Watching (Want to Watch/Dropped/no entry all
-   * resume into Watching once you touch an episode). Specials (season 0) never drive
-   * this — they're excluded from the progress math everywhere else too.
+   * Keeps the show's library status honest with real progress: caught up on
+   * everything released so far → Completed, anything less → Watching (Want
+   * to Watch/Dropped/no entry all resume into Watching once you touch an
+   * episode). Uses episodes actually released (not TMDB's full listed total,
+   * which can include a season's not-yet-aired episodes) — see
+   * deriveTvLibraryStatus. Specials (season 0) never drive this.
    */
   function syncShowStatus(newShowWatchedCount: number) {
     if (!show || seasonNumber === 0) return;
     const inLibrary = library?.find(
       (i) => i.tmdb_id === showId && i.media_type === "tv"
     );
-    const isFullyWatched =
-      totalRegularEpisodes > 0 && newShowWatchedCount >= totalRegularEpisodes;
-    const nextStatus = isFullyWatched ? "completed" : "watching";
+    const nextStatus = deriveTvLibraryStatus(newShowWatchedCount, show);
     if (inLibrary?.status === nextStatus) return;
 
     setStatus.mutate({

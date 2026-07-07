@@ -14,7 +14,6 @@ import {
   useTvDetailsMany,
   useMovieDetailsMany,
   watchedCountByShow,
-  lastWatchedByShow,
 } from "@/lib/hooks";
 import {
   ENDED_TV_STATUSES,
@@ -48,18 +47,19 @@ const TAB_LABELS: Record<StatusFilter, string> = {
   ...STATUS_LABELS,
 };
 
-// "Up to Date" and "New Ep" only make sense for TV — movies have no
-// per-episode progress or air schedule. "Release Date" only makes sense for
-// movies — TV already has air-date-aware sorts.
-type SortOption = "alpha" | "upToDate" | "airing" | "releaseDate";
+// "New Ep" only makes sense for TV — movies have no per-episode progress or
+// air schedule. "Release Date" only makes sense for movies — TV already has
+// air-date-aware sorts. There's no "caught up" sort anymore: a TV show that's
+// watched everything released so far now automatically lives in Completed
+// (see deriveTvLibraryStatus / useSyncTvStatuses).
+type SortOption = "alpha" | "airing" | "releaseDate";
 const SORT_LABELS: Record<SortOption, string> = {
   alpha: "A-Z",
-  upToDate: "Up to Date",
   airing: "New Ep",
   releaseDate: "Release Date",
 };
 const SORT_OPTIONS_BY_MEDIA_TYPE: Record<MediaTypeFilter, readonly SortOption[]> = {
-  tv: ["alpha", "upToDate", "airing"],
+  tv: ["alpha", "airing"],
   movie: ["releaseDate", "alpha"],
 };
 // Movies default to Release Date (most useful chronological view); TV to A-Z.
@@ -180,7 +180,6 @@ export default function LibraryPage() {
     return map;
   }, [movieDetailQueries]);
   const counts = watchedCountByShow(watched);
-  const lastWatched = lastWatchedByShow(watched);
 
   const sortedItems = useMemo(() => {
     if (sortBy === "airing") {
@@ -211,31 +210,6 @@ export default function LibraryPage() {
         .map((x) => x.item);
     }
 
-    if (sortBy === "upToDate") {
-      // Still-continuing shows where you've watched everything released so
-      // far, most recently watched first.
-      return items
-        .map((item) => {
-          const details = detailsById.get(item.tmdb_id);
-          const ended = details ? ENDED_TV_STATUSES.includes(details.status) : true;
-          const released = details ? releasedEpisodeCount(details) : 0;
-          const seen = counts.get(item.tmdb_id) ?? 0;
-          const upToDate = Boolean(details) && !ended && seen >= released;
-          const watchedAt = lastWatched.get(item.tmdb_id) ?? null;
-          return { item, upToDate, watchedAt };
-        })
-        .filter((x) => x.upToDate)
-        .sort((a, b) => {
-          if (!a.watchedAt && b.watchedAt) return 1;
-          if (a.watchedAt && !b.watchedAt) return -1;
-          if (a.watchedAt && b.watchedAt && a.watchedAt !== b.watchedAt) {
-            return b.watchedAt.localeCompare(a.watchedAt);
-          }
-          return a.item.title.localeCompare(b.item.title);
-        })
-        .map((x) => x.item);
-    }
-
     if (sortBy === "releaseDate") {
       const arr = [...items];
       if (tab === "completed") {
@@ -259,7 +233,7 @@ export default function LibraryPage() {
     }
 
     return [...items].sort((a, b) => a.title.localeCompare(b.title));
-  }, [items, tab, sortBy, detailsById, counts, lastWatched]);
+  }, [items, tab, sortBy, detailsById, counts]);
 
   return (
     <>
@@ -332,9 +306,7 @@ export default function LibraryPage() {
             <p className="text-sm">
               {sortBy === "airing" && items.length > 0
                 ? "Nothing new to watch in this list yet."
-                : sortBy === "upToDate" && items.length > 0
-                  ? "No continuing shows fully caught up in this list yet."
-                  : `Nothing in “${TAB_LABELS[tab]}” for ${MEDIA_TYPE_LABELS[mediaType]} yet.`}
+                : `Nothing in “${TAB_LABELS[tab]}” for ${MEDIA_TYPE_LABELS[mediaType]} yet.`}
             </p>
             <Link href="/search" className="text-sm font-bold text-primary">
               Find something to watch

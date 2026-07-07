@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import {
   useMutation,
   useQuery,
@@ -7,7 +8,7 @@ import {
   useQueries,
 } from "@tanstack/react-query";
 import { getSupabase } from "@/lib/supabase/client";
-import type { LibraryStatus } from "@/lib/config";
+import { deriveTvLibraryStatus, type LibraryStatus } from "@/lib/config";
 import type { MediaType, MovieDetails, TvDetails } from "@/lib/tmdb-types";
 
 /* ---------------- Types (DB rows) ---------------- */
@@ -289,4 +290,53 @@ export function watchedDateByEpisode(
     map.set(row.episode_number, row.watched_at);
   }
   return map;
+}
+
+/* ---------------- Status reconciliation ---------------- */
+
+/**
+ * Re-checks every "watching"/"completed" TV show against live TMDB data and
+ * corrects the library status if it's stale — most importantly, flips a
+ * "completed" (caught up) show back to "watching" once a new episode has
+ * actually been released since the last check. Mount this once app-wide
+ * (see components/tv-status-sync.tsx) rather than trusting the stored status
+ * on its own, since nothing pushes us an update when a new episode airs.
+ */
+export function useSyncTvStatuses() {
+  const { data: library } = useLibrary();
+  const { data: watched } = useWatchedEpisodes();
+  const setStatus = useSetStatus();
+
+  const trackedIds = (library ?? [])
+    .filter(
+      (i) =>
+        i.media_type === "tv" &&
+        (i.status === "watching" || i.status === "completed")
+    )
+    .map((i) => i.tmdb_id);
+  const detailQueries = useTvDetailsMany(trackedIds);
+  const counts = watchedCountByShow(watched);
+  const showsLoaded = detailQueries.map((q) => q.data);
+
+  useEffect(() => {
+    if (!library) return;
+    for (const show of showsLoaded) {
+      if (!show) continue;
+      const item = library.find(
+        (i) => i.tmdb_id === show.id && i.media_type === "tv"
+      );
+      if (!item) continue;
+      const seen = counts.get(show.id) ?? 0;
+      const nextStatus = deriveTvLibraryStatus(seen, show);
+      if (item.status === nextStatus) continue;
+      setStatus.mutate({
+        tmdb_id: show.id,
+        media_type: "tv",
+        status: nextStatus,
+        title: show.name,
+        poster_path: show.poster_path,
+        release_date: show.first_air_date || null,
+      });
+    }
+  }, [library, showsLoaded, counts, setStatus]);
 }

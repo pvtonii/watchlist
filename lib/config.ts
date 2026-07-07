@@ -7,7 +7,7 @@
 import type { TvDetails } from "./tmdb-types";
 
 export const APP_NAME = "WatchList";
-export const APP_VERSION = "1.10.0";
+export const APP_VERSION = "1.11.0";
 export const APP_RELEASE_DATE = "2026-07-06";
 
 /** Must match the topbar/background color in globals.css (--bg-deep). */
@@ -68,6 +68,22 @@ export function releasedEpisodeCount(show: TvDetails): number {
     .filter((s) => s.season_number > 0 && s.season_number < last.season_number)
     .reduce((sum, s) => sum + s.episode_count, 0);
   return priorSeasons + last.episode_number;
+}
+
+/**
+ * Derives whether a TV show is "completed" (caught up on every regular
+ * episode released so far) or "watching" (still has a backlog). This is
+ * intentionally re-evaluated against live TMDB data every time it's called
+ * (never just trusted from a stored flag) — a show that was fully caught up
+ * yesterday may have a new episode out today, which should flip it back to
+ * "watching" the next time anything checks.
+ */
+export function deriveTvLibraryStatus(
+  seenCount: number,
+  show: TvDetails
+): "watching" | "completed" {
+  const released = releasedEpisodeCount(show);
+  return released > 0 && seenCount >= released ? "completed" : "watching";
 }
 
 /** Progress bar color for a show, based on your library status + its air status. */
