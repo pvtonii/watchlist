@@ -89,7 +89,10 @@
   TMDB, que às vezes já lista a temporada inteira antes de ela ir ao ar),
   ordenando pela data que você assistiu por último. Sort "New Ep" mostra
   séries com episódio novo pra você (já lançado e não assistido, ou
-  confirmado pra sair), ordenado pela data de lançamento desse episódio.
+  confirmado pra sair), ordenado pela data de lançamento desse episódio
+  (mais recente primeiro). Filmes usam sort "Release Date" por padrão
+  (`DEFAULT_SORT_BY_MEDIA_TYPE`): lançamento mais novo primeiro em Want to
+  Watch, e data que você assistiu (mais recente primeiro) em Completed.
 - Sem sistema de notas na v1 (decidido em 2026-07-04).
 - UI em inglês; dados TMDB em `en-US`.
 

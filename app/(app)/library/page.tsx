@@ -49,16 +49,23 @@ const TAB_LABELS: Record<StatusFilter, string> = {
 };
 
 // "Up to Date" and "New Ep" only make sense for TV — movies have no
-// per-episode progress or air schedule.
-type SortOption = "alpha" | "upToDate" | "airing";
+// per-episode progress or air schedule. "Release Date" only makes sense for
+// movies — TV already has air-date-aware sorts.
+type SortOption = "alpha" | "upToDate" | "airing" | "releaseDate";
 const SORT_LABELS: Record<SortOption, string> = {
   alpha: "A-Z",
   upToDate: "Up to Date",
   airing: "New Ep",
+  releaseDate: "Release Date",
 };
 const SORT_OPTIONS_BY_MEDIA_TYPE: Record<MediaTypeFilter, readonly SortOption[]> = {
   tv: ["alpha", "upToDate", "airing"],
-  movie: ["alpha"],
+  movie: ["releaseDate", "alpha"],
+};
+// Movies default to Release Date (most useful chronological view); TV to A-Z.
+const DEFAULT_SORT_BY_MEDIA_TYPE: Record<MediaTypeFilter, SortOption> = {
+  tv: "alpha",
+  movie: "releaseDate",
 };
 
 // Reads UI state (tab/media/sort) from the URL so it survives navigating
@@ -80,7 +87,7 @@ function readSort(params: URLSearchParams, mediaType: MediaTypeFilter): SortOpti
   const value = params.get("sort");
   return SORT_OPTIONS_BY_MEDIA_TYPE[mediaType].includes(value as SortOption)
     ? (value as SortOption)
-    : "alpha";
+    : DEFAULT_SORT_BY_MEDIA_TYPE[mediaType];
 }
 
 export default function LibraryPage() {
@@ -123,10 +130,11 @@ export default function LibraryPage() {
 
   function selectMediaType(type: MediaTypeFilter) {
     const nextTab = STATUSES_BY_MEDIA_TYPE[type].includes(tab) ? tab : "watchlist";
+    const nextSort = DEFAULT_SORT_BY_MEDIA_TYPE[type];
     setMediaTypeState(type);
     setTabState(nextTab);
-    setSortByState("alpha");
-    updateQuery({ media: type, tab: nextTab, sort: "alpha" });
+    setSortByState(nextSort);
+    updateQuery({ media: type, tab: nextTab, sort: nextSort });
   }
 
   const items = useMemo(
@@ -228,8 +236,30 @@ export default function LibraryPage() {
         .map((x) => x.item);
     }
 
+    if (sortBy === "releaseDate") {
+      const arr = [...items];
+      if (tab === "completed") {
+        // most recently watched movie first
+        arr.sort(
+          (a, b) =>
+            b.updated_at.localeCompare(a.updated_at) || a.title.localeCompare(b.title)
+        );
+      } else {
+        // newest release first; missing dates sort to the end
+        arr.sort((a, b) => {
+          if (!a.release_date && b.release_date) return 1;
+          if (a.release_date && !b.release_date) return -1;
+          if (a.release_date && b.release_date && a.release_date !== b.release_date) {
+            return b.release_date.localeCompare(a.release_date);
+          }
+          return a.title.localeCompare(b.title);
+        });
+      }
+      return arr;
+    }
+
     return [...items].sort((a, b) => a.title.localeCompare(b.title));
-  }, [items, sortBy, detailsById, counts, lastWatched]);
+  }, [items, tab, sortBy, detailsById, counts, lastWatched]);
 
   return (
     <>
