@@ -32,7 +32,6 @@
 | Clientes Supabase (browser / server) | `lib/supabase/client.ts` / `lib/supabase/server.ts` |
 | **Schema do banco + RLS** | `supabase/schema.sql` |
 | Bottom nav (fixa, filha direta do body — NÃO mover pra dentro do #app) | `components/bottom-nav.tsx` |
-| Reconciliação de status Watching/Completed (roda 1x por load do app) | `components/tv-status-sync.tsx` + `useSyncTvStatuses` em `lib/hooks.ts` |
 | Topbar (sticky, com botão voltar) | `components/topbar.tsx` |
 | Card de pôster (busca/home) | `components/poster-card.tsx` |
 | Card grande com barra de progresso na borda (Home > Up Next) | `components/show-progress-card.tsx` |
@@ -72,13 +71,14 @@
     `completed`, mesmo que a série ainda esteja no ar (decidido em 2026-07-06: "em dia"
     conta como completed até sair um episódio novo).
   - Desmarca 1 episódio de uma série `completed` → volta pra `watching` sozinho.
-  - Quando sai um episódio novo pra uma série `completed`, ela some do "em dia" a partir
-    do próximo carregamento do app — não tem trigger em tempo real, é reconciliado
-    reativamente por `useSyncTvStatuses` (`lib/hooks.ts`), montado uma vez em
-    `components/tv-status-sync.tsx` dentro de `app/(app)/layout.tsx`. Só checa séries
-    `completed` que ainda estão no ar (pula as `Ended`/`Canceled` — essas nunca ganham
-    episódio novo, então não tem o que reconciliar); `watching` não precisa, só muda
-    de status via toggle manual de episódio, que já resincroniza na hora.
+  - **Sem reconciliação em background** (tentamos um hook rodando 1x por load do app
+    pra pegar séries que ganharam episódio novo enquanto `completed` — quebrou o app
+    inteiro em 2026-07-06, removido). Uma série `completed` só recalcula o status
+    quando você mexe em algo (marca/desmarca episódio na tela da temporada), então se
+    sair um episódio novo ela fica "completed" (desatualizado) até você de fato assistir
+    esse episódio — nesse momento o toggle já resincroniza pra `watching` sozinho.
+    Pra você saber que tem episódio novo sem precisar abrir a série: Home > Upcoming
+    Episodes também lista séries `completed` ainda no ar com `next_episode_to_air`.
   - Tocar em "Completed" manualmente marca TODOS os episódios como assistidos (pede
     confirmação, `app/(app)/tv/[id]/page.tsx`).
   - "Dropped" mantém o histórico de episódios assistidos (não apaga `watched_episodes`).

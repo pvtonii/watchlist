@@ -58,13 +58,22 @@ export default function HomePage() {
       ),
     [library]
   );
-  /** Watching + Want to Watch: any show whose new episodes are worth surfacing. */
+  /**
+   * Watching + Want to Watch + Completed: any show whose new episodes are
+   * worth surfacing. Completed is included so a show you're caught up on
+   * still shows its next confirmed episode here — since there's no
+   * background job flipping it back to "watching" the moment a new episode
+   * airs, this is how you notice there's something new without having to
+   * open the show.
+   */
   const trackedTvShows = useMemo(
     () =>
       (library ?? []).filter(
         (i) =>
           i.media_type === "tv" &&
-          (i.status === "watching" || i.status === "watchlist")
+          (i.status === "watching" ||
+            i.status === "watchlist" ||
+            i.status === "completed")
       ),
     [library]
   );

@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import BottomNav from "@/components/bottom-nav";
-import TvStatusSync from "@/components/tv-status-sync";
 
 /**
  * Authed area. Estrutura da receita Melhores Práticas v3:
@@ -23,7 +22,6 @@ export default async function AppLayout({
     <>
       <div id="app">{children}</div>
       <BottomNav />
-      <TvStatusSync />
     </>
   );
 }

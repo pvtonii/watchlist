@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import {
   useMutation,
   useQuery,
@@ -8,11 +7,7 @@ import {
   useQueries,
 } from "@tanstack/react-query";
 import { getSupabase } from "@/lib/supabase/client";
-import {
-  deriveTvLibraryStatus,
-  ENDED_TV_STATUSES,
-  type LibraryStatus,
-} from "@/lib/config";
+import type { LibraryStatus } from "@/lib/config";
 import type { MediaType, MovieDetails, TvDetails } from "@/lib/tmdb-types";
 
 /* ---------------- Types (DB rows) ---------------- */
@@ -296,65 +291,3 @@ export function watchedDateByEpisode(
   return map;
 }
 
-/* ---------------- Status reconciliation ---------------- */
-
-/**
- * Re-checks every "completed" TV show that's still airing (not Ended/
- * Canceled) against live TMDB data and flips it back to "watching" once a
- * new episode has actually been released since it was marked caught-up.
- * Shows that have genuinely ended are skipped — they'll never get a new
- * episode, so there's nothing to reconcile. "Watching" shows don't need this
- * either way: they only ever change status through an explicit episode
- * toggle (see syncShowStatus in the season page), which already re-derives
- * the status at that moment.
- * Mount this once app-wide (see components/tv-status-sync.tsx) since nothing
- * pushes us an update when a new episode airs — it has to be polled.
- */
-export function useSyncTvStatuses() {
-  const { data: library } = useLibrary();
-  const { data: watched } = useWatchedEpisodes();
-  const setStatus = useSetStatus();
-
-  const completedIds = (library ?? [])
-    .filter((i) => i.media_type === "tv" && i.status === "completed")
-    .map((i) => i.tmdb_id);
-  const detailQueries = useTvDetailsMany(completedIds);
-  const counts = watchedCountByShow(watched);
-
-  // A plain string, not an object/array — stable across renders whenever
-  // the underlying data hasn't actually changed, so the effect below only
-  // re-runs when something meaningful changed (avoids re-deriving off a
-  // fresh array/Map reference every render and re-firing for no reason).
-  const signal = completedIds
-    .map((id) => `${id}:${counts.get(id) ?? 0}`)
-    .join(",");
-  const showsById = new Map(
-    detailQueries.map((q) => q.data).filter(Boolean).map((s) => [s!.id, s!])
-  );
-
-  useEffect(() => {
-    if (!library) return;
-    for (const id of completedIds) {
-      const show = showsById.get(id);
-      if (!show) continue;
-      if (ENDED_TV_STATUSES.includes(show.status)) continue; // never gets a new episode
-      const item = library.find((i) => i.tmdb_id === id && i.media_type === "tv");
-      if (!item) continue;
-      const seen = counts.get(id) ?? 0;
-      const nextStatus = deriveTvLibraryStatus(seen, show);
-      if (item.status === nextStatus) continue;
-      setStatus.mutate({
-        tmdb_id: id,
-        media_type: "tv",
-        status: nextStatus,
-        title: show.name,
-        poster_path: show.poster_path,
-        release_date: show.first_air_date || null,
-      });
-    }
-    // signal captures every (id, watched count) pair as a primitive string —
-    // that's the real dependency; library/showsById/setStatus are read fresh
-    // each run but shouldn't themselves retrigger this effect.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signal]);
-}
