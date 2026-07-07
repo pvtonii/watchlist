@@ -141,23 +141,15 @@ export default function ProfilePage() {
           <p className="truncate text-sm font-bold">{email || "…"}</p>
         </div>
 
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <CountTile value={showsTracked} label="Shows" />
+          <CountTile value={episodesWatched} label="Episodes" />
+          <CountTile value={moviesWatched} label="Movies" />
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
-          <StatCard
-            icon={<Tv size={16} />}
-            label="TV Shows"
-            value={episodesWatched}
-            unit={episodesWatched === 1 ? "episode" : "episodes"}
-            sub={`${showsTracked} show${showsTracked === 1 ? "" : "s"}`}
-            time={fmtWatchDuration(showMinutes)}
-          />
-          <StatCard
-            icon={<Film size={16} />}
-            label="Movies"
-            value={moviesWatched}
-            unit={moviesWatched === 1 ? "movie" : "movies"}
-            sub="watched"
-            time={fmtWatchDuration(movieMinutes)}
-          />
+          <TimeCard icon={<Tv size={16} />} label="TV Shows" time={fmtWatchDuration(showMinutes)} />
+          <TimeCard icon={<Film size={16} />} label="Movies" time={fmtWatchDuration(movieMinutes)} />
         </div>
 
         <div className="flex items-center justify-between rounded-xl bg-card p-4">
@@ -201,19 +193,22 @@ export default function ProfilePage() {
   );
 }
 
-function StatCard({
+function CountTile({ value, label }: { value: number; label: string }) {
+  return (
+    <div className="rounded-xl bg-card p-3">
+      <p className="text-xl font-extrabold text-primary">{value}</p>
+      <p className="text-[11px] text-muted-foreground">{label}</p>
+    </div>
+  );
+}
+
+function TimeCard({
   icon,
   label,
-  value,
-  unit,
-  sub,
   time,
 }: {
   icon: React.ReactNode;
   label: string;
-  value: number;
-  unit: string;
-  sub: string;
   time: string;
 }) {
   return (
@@ -224,20 +219,13 @@ function StatCard({
           {label}
         </span>
       </div>
-      <p className="leading-none">
-        <span className="text-2xl font-extrabold text-primary">{value}</span>{" "}
-        <span className="text-xs font-semibold text-muted-foreground">
-          {unit}
-        </span>
-      </p>
-      <p className="text-[11px] text-muted-foreground">
-        {sub} · {time} watched
-      </p>
+      <p className="text-2xl font-extrabold text-primary">{time}</p>
+      <p className="text-[11px] text-muted-foreground">watched</p>
     </div>
   );
 }
 
-/** Top 3 most common values (e.g. network or genre names) across a set of shows. */
+/** Top 8 most common values (e.g. network or genre names) across a set of shows. */
 function topCounts(
   ids: number[],
   detailsById: Map<number, TvDetails>,
@@ -253,7 +241,7 @@ function topCounts(
   }
   return [...counts.entries()]
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
+    .slice(0, 8)
     .map(([name, count]) => ({ name, count }));
 }
 
