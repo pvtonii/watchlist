@@ -18,8 +18,6 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
 
-const ENDED_TV_STATUSES = ["Ended", "Canceled"];
-
 async function tmdbTvDetails(id) {
   const url = new URL(`https://api.themoviedb.org/3/tv/${id}`);
   url.searchParams.set("language", "en-US");
@@ -90,7 +88,6 @@ async function main() {
   console.log(`${library.length} TV shows to check.\n`);
 
   let fixed = 0;
-  let skippedEnded = 0;
   for (const [i, item] of library.entries()) {
     let show;
     try {
@@ -100,11 +97,6 @@ async function main() {
       continue;
     }
     await sleep(60);
-
-    if (ENDED_TV_STATUSES.includes(show.status)) {
-      skippedEnded++;
-      continue;
-    }
 
     const seen = counts.get(item.tmdb_id) ?? 0;
     const nextStatus = deriveStatus(seen, show);
@@ -123,7 +115,7 @@ async function main() {
     if (error) console.error(`    ! update failed: ${error.message}`);
   }
 
-  console.log(`\n${fixed} show(s) ${commit ? "fixed" : "would be fixed"}. ${skippedEnded} ended show(s) skipped (already final).`);
+  console.log(`\n${fixed} show(s) ${commit ? "fixed" : "would be fixed"}.`);
   console.log(commit ? "Done." : "Dry run complete — rerun with --commit to write these changes.");
 }
 
