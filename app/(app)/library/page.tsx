@@ -14,16 +14,14 @@ import {
   useTvDetailsMany,
   useMovieDetailsMany,
   watchedCountByShow,
+  lastWatchedByShow,
+  type LibraryItem,
 } from "@/lib/hooks";
 import {
   ENDED_TV_STATUSES,
-  LIBRARY_STATUSES,
   regularEpisodeTotal,
-  releasedEpisodeCount,
   showProgressColor,
-  STATUS_LABELS,
   tmdbPoster,
-  type LibraryStatus,
 } from "@/lib/config";
 import { fmtDateTime, fmtMonthYear, fmtYearRange } from "@/lib/format";
 import type { MovieDetails, TvDetails } from "@/lib/tmdb-types";
@@ -35,38 +33,44 @@ const MEDIA_TYPE_LABELS: Record<MediaTypeFilter, string> = {
   movie: "Movies",
 };
 
-// Movies only ever get "watchlist"/"completed" (see lib/config.ts); no per-episode "watching" or "dropped".
-const MOVIE_STATUSES: readonly LibraryStatus[] = ["watchlist", "completed"];
-type StatusFilter = LibraryStatus | "all";
-const STATUSES_BY_MEDIA_TYPE: Record<MediaTypeFilter, readonly StatusFilter[]> = {
-  tv: ["all", ...LIBRARY_STATUSES],
-  movie: ["all", ...MOVIE_STATUSES],
-};
-const TAB_LABELS: Record<StatusFilter, string> = {
+// TV Time-style progress buckets, derived at display time (not stored):
+// - haventStarted = status watchlist
+// - watching       = status watching (TV only — movies have no partial state)
+// - upToDate       = status completed, show still airing (not Ended/Canceled)
+// - finished       = status completed, show has genuinely ended (or any movie)
+// - stopped        = status dropped (TV only)
+type ProgressFilter =
+  | "all"
+  | "watching"
+  | "haventStarted"
+  | "upToDate"
+  | "finished"
+  | "stopped";
+const PROGRESS_LABELS: Record<ProgressFilter, string> = {
   all: "All",
-  ...STATUS_LABELS,
+  watching: "Watching",
+  haventStarted: "Haven't Started",
+  upToDate: "Up to Date",
+  finished: "Finished",
+  stopped: "Stopped",
+};
+const PROGRESS_OPTIONS_BY_MEDIA_TYPE: Record<MediaTypeFilter, readonly ProgressFilter[]> = {
+  tv: ["all", "watching", "haventStarted", "upToDate", "finished", "stopped"],
+  movie: ["all", "haventStarted", "finished"],
+};
+const DEFAULT_PROGRESS_BY_MEDIA_TYPE: Record<MediaTypeFilter, ProgressFilter> = {
+  tv: "watching",
+  movie: "haventStarted",
 };
 
-// "New Ep" only makes sense for TV — movies have no per-episode progress or
-// air schedule. "Release Date" only makes sense for movies — TV already has
-// air-date-aware sorts. There's no "caught up" sort anymore: a TV show that's
-// watched everything released so far now automatically lives in Completed
-// (see deriveTvLibraryStatus / useSyncTvStatuses).
-type SortOption = "alpha" | "airing" | "releaseDate";
+type SortOption = "lastWatched" | "lastAdded" | "alpha";
 const SORT_LABELS: Record<SortOption, string> = {
+  lastWatched: "Last Watched",
+  lastAdded: "Last Added",
   alpha: "A-Z",
-  airing: "New Ep",
-  releaseDate: "Release Date",
 };
-const SORT_OPTIONS_BY_MEDIA_TYPE: Record<MediaTypeFilter, readonly SortOption[]> = {
-  tv: ["alpha", "airing"],
-  movie: ["releaseDate", "alpha"],
-};
-// Movies default to Release Date (most useful chronological view); TV to A-Z.
-const DEFAULT_SORT_BY_MEDIA_TYPE: Record<MediaTypeFilter, SortOption> = {
-  tv: "alpha",
-  movie: "releaseDate",
-};
+const SORT_OPTIONS: readonly SortOption[] = ["lastWatched", "lastAdded", "alpha"];
+const DEFAULT_SORT: SortOption = "lastWatched";
 
 // Reads UI state (tab/media/sort) from the URL so it survives navigating
 // into a detail page and back — plain useState resets on remount, which made
@@ -77,17 +81,33 @@ function readMediaType(params: URLSearchParams): MediaTypeFilter {
     ? (value as MediaTypeFilter)
     : "tv";
 }
-function readTab(params: URLSearchParams, mediaType: MediaTypeFilter): StatusFilter {
-  const value = params.get("tab");
-  return STATUSES_BY_MEDIA_TYPE[mediaType].includes(value as StatusFilter)
-    ? (value as StatusFilter)
-    : "watching";
+function readProgress(params: URLSearchParams, mediaType: MediaTypeFilter): ProgressFilter {
+  const value = params.get("progress");
+  return PROGRESS_OPTIONS_BY_MEDIA_TYPE[mediaType].includes(value as ProgressFilter)
+    ? (value as ProgressFilter)
+    : DEFAULT_PROGRESS_BY_MEDIA_TYPE[mediaType];
 }
-function readSort(params: URLSearchParams, mediaType: MediaTypeFilter): SortOption {
+function readSort(params: URLSearchParams): SortOption {
   const value = params.get("sort");
-  return SORT_OPTIONS_BY_MEDIA_TYPE[mediaType].includes(value as SortOption)
+  return (SORT_OPTIONS as readonly string[]).includes(value ?? "")
     ? (value as SortOption)
-    : DEFAULT_SORT_BY_MEDIA_TYPE[mediaType];
+    : DEFAULT_SORT;
+}
+
+/** TV Time-style progress bucket for a library item (display-only, never persisted). */
+function progressCategory(
+  item: LibraryItem,
+  details: TvDetails | undefined
+): ProgressFilter {
+  if (item.media_type === "movie") {
+    return item.status === "watchlist" ? "haventStarted" : "finished";
+  }
+  if (item.status === "watchlist") return "haventStarted";
+  if (item.status === "dropped") return "stopped";
+  if (item.status === "watching") return "watching";
+  // completed
+  const ended = details ? ENDED_TV_STATUSES.includes(details.status) : false;
+  return ended ? "finished" : "upToDate";
 }
 
 export default function LibraryPage() {
@@ -98,17 +118,14 @@ export default function LibraryPage() {
   const [mediaType, setMediaTypeState] = useState<MediaTypeFilter>(() =>
     readMediaType(searchParams)
   );
-  const [tab, setTabState] = useState<StatusFilter>(() =>
-    readTab(searchParams, mediaType)
+  const [progress, setProgressState] = useState<ProgressFilter>(() =>
+    readProgress(searchParams, mediaType)
   );
-  const [sortBy, setSortByState] = useState<SortOption>(() =>
-    readSort(searchParams, mediaType)
-  );
+  const [sortBy, setSortByState] = useState<SortOption>(() => readSort(searchParams));
   const { data: library, isLoading } = useLibrary();
   const { data: watched } = useWatchedEpisodes();
 
-  const statuses = STATUSES_BY_MEDIA_TYPE[mediaType];
-  const sortOptions = SORT_OPTIONS_BY_MEDIA_TYPE[mediaType];
+  const progressOptions = PROGRESS_OPTIONS_BY_MEDIA_TYPE[mediaType];
 
   // Mirror state into the URL (replace, not push — this is a filter tweak,
   // not a new "place" to visit) so it's whatever's there when you come back.
@@ -118,9 +135,9 @@ export default function LibraryPage() {
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }
 
-  function setTab(next: StatusFilter) {
-    setTabState(next);
-    updateQuery({ tab: next });
+  function setProgress(next: ProgressFilter) {
+    setProgressState(next);
+    updateQuery({ progress: next });
   }
 
   function setSortBy(next: SortOption) {
@@ -129,44 +146,19 @@ export default function LibraryPage() {
   }
 
   function selectMediaType(type: MediaTypeFilter) {
-    const nextTab = STATUSES_BY_MEDIA_TYPE[type].includes(tab) ? tab : "watchlist";
-    const nextSort = DEFAULT_SORT_BY_MEDIA_TYPE[type];
+    const nextProgress = DEFAULT_PROGRESS_BY_MEDIA_TYPE[type];
     setMediaTypeState(type);
-    setTabState(nextTab);
-    setSortByState(nextSort);
-    updateQuery({ media: type, tab: nextTab, sort: nextSort });
+    setProgressState(nextProgress);
+    updateQuery({ media: type, progress: nextProgress });
   }
 
-  const items = useMemo(
-    () =>
-      (library ?? []).filter(
-        (i) =>
-          (tab === "all" || i.status === tab) && i.media_type === mediaType
-      ),
-    [library, tab, mediaType]
+  const mediaItems = useMemo(
+    () => (library ?? []).filter((i) => i.media_type === mediaType),
+    [library, mediaType]
   );
 
-  const countsByStatus = useMemo(() => {
-    const map: Record<StatusFilter, number> = {
-      all: 0,
-      watchlist: 0,
-      watching: 0,
-      completed: 0,
-      dropped: 0,
-    };
-    for (const i of library ?? []) {
-      if (i.media_type !== mediaType) continue;
-      map.all += 1;
-      map[i.status] += 1;
-    }
-    return map;
-  }, [library, mediaType]);
-  const tvIds = items
-    .filter((i) => i.media_type === "tv")
-    .map((i) => i.tmdb_id);
-  const movieIds = items
-    .filter((i) => i.media_type === "movie")
-    .map((i) => i.tmdb_id);
+  const tvIds = mediaType === "tv" ? mediaItems.map((i) => i.tmdb_id) : [];
+  const movieIds = mediaType === "movie" ? mediaItems.map((i) => i.tmdb_id) : [];
   const detailQueries = useTvDetailsMany(tvIds);
   const movieDetailQueries = useMovieDetailsMany(movieIds);
   const detailsById = useMemo(() => {
@@ -180,60 +172,74 @@ export default function LibraryPage() {
     return map;
   }, [movieDetailQueries]);
   const counts = watchedCountByShow(watched);
+  const lastWatched = lastWatchedByShow(watched);
+
+  const categorized = useMemo(
+    () =>
+      mediaItems.map((item) => ({
+        item,
+        category: progressCategory(item, detailsById.get(item.tmdb_id)),
+      })),
+    [mediaItems, detailsById]
+  );
+
+  const progressCounts = useMemo(() => {
+    const map: Record<ProgressFilter, number> = {
+      all: 0,
+      watching: 0,
+      haventStarted: 0,
+      upToDate: 0,
+      finished: 0,
+      stopped: 0,
+    };
+    for (const { category } of categorized) {
+      map.all += 1;
+      map[category] += 1;
+    }
+    return map;
+  }, [categorized]);
+
+  const filteredItems = useMemo(
+    () =>
+      categorized
+        .filter((x) => progress === "all" || x.category === progress)
+        .map((x) => x.item),
+    [categorized, progress]
+  );
 
   const sortedItems = useMemo(() => {
-    if (sortBy === "airing") {
-      // Anything "new for you to watch": episodes already released that you
-      // haven't seen yet, or a confirmed upcoming episode. Sorted by that
-      // episode's release date, most recent first.
-      const today = new Date().toISOString().slice(0, 10);
-      return items
-        .map((item) => {
-          const details = detailsById.get(item.tmdb_id);
-          const released = details ? releasedEpisodeCount(details) : 0;
-          const seen = counts.get(item.tmdb_id) ?? 0;
-          const behind = Boolean(details) && seen < released;
-          const nextDate = details?.next_episode_to_air?.air_date ?? null;
-          const hasUpcoming = Boolean(nextDate && nextDate >= today);
-          const date = behind
-            ? (details?.last_episode_to_air?.air_date ?? null)
-            : hasUpcoming
-              ? nextDate
+    const arr = [...filteredItems];
+    if (sortBy === "alpha") {
+      arr.sort((a, b) => a.title.localeCompare(b.title));
+    } else if (sortBy === "lastAdded") {
+      arr.sort(
+        (a, b) =>
+          b.created_at.localeCompare(a.created_at) || a.title.localeCompare(b.title)
+      );
+    } else {
+      // lastWatched: TV uses the most recent episode watched_at; movies use
+      // when they were marked completed. Nothing watched yet sorts last.
+      arr.sort((a, b) => {
+        const dateA =
+          a.media_type === "tv"
+            ? (lastWatched.get(a.tmdb_id) ?? null)
+            : a.status === "completed"
+              ? a.updated_at
               : null;
-          return { item, date, include: behind || hasUpcoming };
-        })
-        .filter((x) => x.include && x.date)
-        .sort(
-          (a, b) =>
-            b.date!.localeCompare(a.date!) || a.item.title.localeCompare(b.item.title)
-        )
-        .map((x) => x.item);
+        const dateB =
+          b.media_type === "tv"
+            ? (lastWatched.get(b.tmdb_id) ?? null)
+            : b.status === "completed"
+              ? b.updated_at
+              : null;
+        if (!dateA && dateB) return 1;
+        if (dateA && !dateB) return -1;
+        if (dateA && dateB && dateA !== dateB) return dateB.localeCompare(dateA);
+        return a.title.localeCompare(b.title);
+      });
     }
-
-    if (sortBy === "releaseDate") {
-      const arr = [...items];
-      if (tab === "completed") {
-        // most recently watched movie first
-        arr.sort(
-          (a, b) =>
-            b.updated_at.localeCompare(a.updated_at) || a.title.localeCompare(b.title)
-        );
-      } else {
-        // newest release first; missing dates sort to the end
-        arr.sort((a, b) => {
-          if (!a.release_date && b.release_date) return 1;
-          if (a.release_date && !b.release_date) return -1;
-          if (a.release_date && b.release_date && a.release_date !== b.release_date) {
-            return b.release_date.localeCompare(a.release_date);
-          }
-          return a.title.localeCompare(b.title);
-        });
-      }
-      return arr;
-    }
-
-    return [...items].sort((a, b) => a.title.localeCompare(b.title));
-  }, [items, tab, sortBy, detailsById, counts]);
+    return arr;
+  }, [filteredItems, sortBy, lastWatched]);
 
   return (
     <>
@@ -241,7 +247,7 @@ export default function LibraryPage() {
         title="My List"
         right={
           <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-bold text-muted-foreground">
-            {TAB_LABELS[tab]} {countsByStatus[tab]}
+            {PROGRESS_LABELS[progress]} {progressCounts[progress]}
           </span>
         }
       />
@@ -263,19 +269,19 @@ export default function LibraryPage() {
           ))}
         </div>
 
-        {/* tabs por status */}
+        {/* progress */}
         <div className="mb-4 flex gap-2 overflow-x-auto">
-          {statuses.map((status) => (
+          {progressOptions.map((option) => (
             <button
-              key={status}
-              onClick={() => setTab(status)}
+              key={option}
+              onClick={() => setProgress(option)}
               className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors ${
-                tab === status
+                progress === option
                   ? "bg-primary text-primary-foreground"
                   : "bg-secondary text-muted-foreground"
               }`}
             >
-              {TAB_LABELS[status]}
+              {PROGRESS_LABELS[option]}
             </button>
           ))}
         </div>
@@ -283,7 +289,7 @@ export default function LibraryPage() {
         {/* sort */}
         <div className="mb-4 flex items-center gap-2 overflow-x-auto">
           <span className="shrink-0 text-xs font-bold text-muted-foreground">Sort:</span>
-          {sortOptions.map((option) => (
+          {SORT_OPTIONS.map((option) => (
             <button
               key={option}
               onClick={() => setSortBy(option)}
@@ -304,9 +310,8 @@ export default function LibraryPage() {
           <div className="mt-12 flex flex-col items-center gap-2 text-muted-foreground">
             <Clapperboard size={28} />
             <p className="text-sm">
-              {sortBy === "airing" && items.length > 0
-                ? "Nothing new to watch in this list yet."
-                : `Nothing in “${TAB_LABELS[tab]}” for ${MEDIA_TYPE_LABELS[mediaType]} yet.`}
+              Nothing in “{PROGRESS_LABELS[progress]}” for {MEDIA_TYPE_LABELS[mediaType]}{" "}
+              yet.
             </p>
             <Link href="/search" className="text-sm font-bold text-primary">
               Find something to watch

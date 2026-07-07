@@ -17,7 +17,7 @@
 | Ícones do app | `public/icons/` (gerados; fundo sólido #0c111b) |
 | **Tela Home** (Up Next, próximos episódios, lançamentos) | `app/(app)/page.tsx` |
 | **Tela Busca** | `app/(app)/search/page.tsx` |
-| **Tela My List** (abas por status + progresso) | `app/(app)/library/page.tsx` |
+| **Tela My List** (filtro Progress + sort, estilo TV Time) | `app/(app)/library/page.tsx` |
 | **Tela Profile** (stats, sign out, botão Atualizar, footer versão) | `app/(app)/profile/page.tsx` |
 | **Detalhe de filme** (sinopse, elenco, Want to Watch/Watched) | `app/(app)/movie/[id]/page.tsx` |
 | **Detalhe de série** (status, progresso, temporadas) | `app/(app)/tv/[id]/page.tsx` |
@@ -94,12 +94,15 @@
   título/legenda, `STALE_ROW_SIZE`), ordenadas da mais abandonada pra menos.
   Séries nunca assistidas (status Watching sem nenhum episódio marcado)
   ficam fora da Home inteira — não aparecem em nenhuma das duas seções.
-- My List: sort "New Ep" mostra
-  séries com episódio novo pra você (já lançado e não assistido, ou
-  confirmado pra sair), ordenado pela data de lançamento desse episódio
-  (mais recente primeiro). Filmes usam sort "Release Date" por padrão
-  (`DEFAULT_SORT_BY_MEDIA_TYPE`): lançamento mais novo primeiro em Want to
-  Watch, e data que você assistiu (mais recente primeiro) em Completed.
+- My List (estilo TV Time, decidido em 2026-07-06): filtro por **Progress**, não mais
+  por status bruto — TV: All/Watching/Haven't Started/Up to Date/Finished/Stopped;
+  Filme: All/Haven't Started/Finished. "Up to Date" (completed, ainda no ar) e
+  "Finished" (completed, `Ended`/`Canceled` de vez, ou qualquer filme) são calculados
+  na hora de exibir a partir do status do TMDB (`progressCategory` em
+  `app/(app)/library/page.tsx`) — nunca gravados no banco, só leitura.
+  Sort: Last Watched (padrão) / Last Added / A-Z, iguais pra série e filme.
+  Last Watched = `watched_at` mais recente da série (TV) ou data que o filme foi
+  marcado completed (`updated_at`); sem histórico fica por último.
 - Sem sistema de notas na v1 (decidido em 2026-07-04).
 - UI em inglês; dados TMDB em `en-US`.
 
