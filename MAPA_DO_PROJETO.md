@@ -75,8 +75,10 @@
   - Quando sai um episódio novo pra uma série `completed`, ela some do "em dia" a partir
     do próximo carregamento do app — não tem trigger em tempo real, é reconciliado
     reativamente por `useSyncTvStatuses` (`lib/hooks.ts`), montado uma vez em
-    `components/tv-status-sync.tsx` dentro de `app/(app)/layout.tsx`, checando toda série
-    `watching`/`completed` contra o TMDB e corrigindo o status se estiver desatualizado.
+    `components/tv-status-sync.tsx` dentro de `app/(app)/layout.tsx`. Só checa séries
+    `completed` que ainda estão no ar (pula as `Ended`/`Canceled` — essas nunca ganham
+    episódio novo, então não tem o que reconciliar); `watching` não precisa, só muda
+    de status via toggle manual de episódio, que já resincroniza na hora.
   - Tocar em "Completed" manualmente marca TODOS os episódios como assistidos (pede
     confirmação, `app/(app)/tv/[id]/page.tsx`).
   - "Dropped" mantém o histórico de episódios assistidos (não apaga `watched_episodes`).
