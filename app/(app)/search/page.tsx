@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { SearchX, X } from "lucide-react";
 import Topbar from "@/components/topbar";
 import PosterCard from "@/components/poster-card";
@@ -22,12 +22,23 @@ export default function SearchPage() {
   const [text, setText] = useState("");
   const [query, setQuery] = useState("");
   const [mediaFilter, setMediaFilter] = useState<MediaFilter>("all");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // debounce: só busca 400ms depois de parar de digitar
   useEffect(() => {
     const t = setTimeout(() => setQuery(text.trim()), 400);
     return () => clearTimeout(t);
   }, [text]);
+
+  // Dismiss the keyboard on scroll — with it open, iOS resizes the visual
+  // viewport mid-scroll and the fixed bottom nav visibly drifts/follows.
+  useEffect(() => {
+    function blurOnScroll() {
+      inputRef.current?.blur();
+    }
+    window.addEventListener("scroll", blurOnScroll, { passive: true });
+    return () => window.removeEventListener("scroll", blurOnScroll);
+  }, []);
 
   const { data, isFetching, error } = useTmdb<TmdbSearchResponse>(
     query.length >= 2 ? `/search?q=${encodeURIComponent(query)}` : null
@@ -56,6 +67,7 @@ export default function SearchPage() {
       <main className="content pt-1">
         <div className="relative mb-3">
           <Input
+            ref={inputRef}
             type="search"
             placeholder="Movies, TV shows…"
             value={text}
