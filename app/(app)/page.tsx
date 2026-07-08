@@ -7,7 +7,7 @@ import { Tv, Search } from "lucide-react";
 import Topbar from "@/components/topbar";
 import PosterCard from "@/components/poster-card";
 import ShowProgressCard from "@/components/show-progress-card";
-import { Skeleton } from "@/components/ui/skeleton";
+import AppSplash from "@/components/app-splash";
 import {
   useLibrary,
   useWatchedEpisodes,
@@ -125,6 +125,14 @@ export default function HomePage() {
   const wantToWatchMovies = (library ?? []).filter(
     (i) => i.media_type === "movie" && i.status === "watchlist"
   );
+  const libraryKeys = useMemo(
+    () => new Set((library ?? []).map((i) => `${i.media_type}-${i.tmdb_id}`)),
+    [library]
+  );
+
+  // One full-screen splash while the core data loads, instead of every
+  // section popping in its own skeleton at a different time.
+  if (libraryLoading || upcomingLoading) return <AppSplash />;
 
   return (
     <>
@@ -133,9 +141,7 @@ export default function HomePage() {
         {/* -------- Up Next (continue watching, recently active) -------- */}
         <section>
           <h2 className="mb-3 text-base font-bold">Up Next</h2>
-          {libraryLoading ? (
-            <Skeleton className="h-20 w-full" />
-          ) : upNextAll.length === 0 ? (
+          {upNextAll.length === 0 ? (
             <div className="rounded-xl bg-card p-4 text-sm text-muted-foreground">
               <Tv className="mb-2 text-primary" size={20} />
               Nothing in progress. Find a show and set it to{" "}
@@ -233,24 +239,21 @@ export default function HomePage() {
         {/* -------- Upcoming movie releases (TMDB, real time) -------- */}
         <section>
           <h2 className="mb-3 text-base font-bold">Upcoming Movies</h2>
-          {upcomingLoading ? (
-            <Skeleton className="h-40 w-full" />
-          ) : (
-            <div className="hscroll">
-              {(upcoming?.movies ?? []).slice(0, 15).map((m) => (
-                <PosterCard
-                  key={m.id}
-                  id={m.id}
-                  mediaType="movie"
-                  title={itemTitle(m)}
-                  posterPath={m.poster_path}
-                  sub={fmtDate(m.release_date)}
-                  width={108}
-                  rating={m.vote_average}
-                />
-              ))}
-            </div>
-          )}
+          <div className="hscroll">
+            {(upcoming?.movies ?? []).slice(0, 15).map((m) => (
+              <PosterCard
+                key={m.id}
+                id={m.id}
+                mediaType="movie"
+                title={itemTitle(m)}
+                posterPath={m.poster_path}
+                sub={fmtDate(m.release_date)}
+                width={108}
+                rating={m.vote_average}
+                inLibrary={libraryKeys.has(`movie-${m.id}`)}
+              />
+            ))}
+          </div>
         </section>
 
         {/* -------- Movies you've marked Want to Watch -------- */}

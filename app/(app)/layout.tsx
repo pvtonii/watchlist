@@ -13,10 +13,15 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const supabase = await createClient();
+  // getSession() (not getUser()) — no extra network round-trip to Supabase.
+  // The proxy already validated/refreshed the token for this exact request
+  // (lib/supabase/server.ts), so the cookie session here is already trustworthy.
+  // This layout re-runs on every tab switch (dynamic due to cookies()), so a
+  // second getUser() call here would double the auth latency on every click.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) redirect("/login");
 
   return (
     <>

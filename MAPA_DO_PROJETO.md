@@ -4,7 +4,7 @@
 > arquivo certo, sem reler o projeto todo.
 
 **Stack:** Next.js 16 (App Router, TS) · Tailwind v4 · shadcn/ui · Supabase (auth + Postgres/RLS) · React Query · Zod · TMDB API · Vercel
-**Versão atual:** v1.0.0 (2026-07-04) — definida em `lib/config.ts`
+**Versão atual:** v1.14.0 (2026-07-08) — definida em `lib/config.ts`
 
 ## Onde mexo pra…
 
@@ -16,6 +16,7 @@
 | Manifest PWA | `app/manifest.ts` |
 | Ícones do app | `public/icons/` (gerados; fundo sólido #0c111b) |
 | **Tela Home** (Up Next, próximos episódios, lançamentos) | `app/(app)/page.tsx` |
+| Tela de loading (splash de marca, cold start + `app/(app)/loading.tsx`) | `components/app-splash.tsx` |
 | **Tela Busca** | `app/(app)/search/page.tsx` |
 | **Tela My List** (filtro Progress + sort, estilo TV Time) | `app/(app)/library/page.tsx` |
 | **Tela Profile** (stats, sign out, botão Atualizar, footer versão) | `app/(app)/profile/page.tsx` |
@@ -112,6 +113,16 @@
   status (não exclui Stopped).
 - Sem sistema de notas na v1 (decidido em 2026-07-04).
 - UI em inglês; dados TMDB em `en-US`.
+- Home espera `library` + `upcoming` carregarem antes de renderizar (mostra
+  `AppSplash` até lá, `app/(app)/page.tsx`) — evita as seções aparecendo em
+  momentos diferentes (skeleton picotado).
+- `app/(app)/layout.tsx` usa `getSession()`, não `getUser()`: o proxy
+  (`proxy.ts`) já valida/atualiza o token contra o servidor da Supabase em
+  toda navegação (matcher cobre quase todas as rotas); repetir `getUser()`
+  no layout duplicava esse round-trip de rede em CADA troca de aba, já que
+  esse layout é dinâmico (usa `cookies()`) e não entra no Router Cache do
+  Next — decidido em 2026-07-08 depois de identificar isso como a causa do
+  clique/navegação lenta.
 
 ## Ao mudar qualquer coisa (checklist de entrega)
 
