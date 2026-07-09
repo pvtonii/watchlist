@@ -6,8 +6,33 @@ import { NextResponse, type NextRequest } from "next/server";
  * every navigation. Auth *decisions* (redirect to /login) live in
  * app/(app)/layout.tsx; data is protected by RLS either way.
  */
+
+// getUser() is a real network round-trip to Supabase's auth server — it's
+// the recommended way to both validate the JWT and catch server-side
+// revocation, but paying that latency on EVERY navigation is what made the
+// app open to a long blank screen (nothing renders until this call
+// resolves). We cache "already validated" for a short window in a cookie so
+// rapid navigation/cold opens reuse the last check instead of blocking on
+// the network again. Trade-off: a session revoked elsewhere (sign-out on
+// another device, ban) can stay valid here for up to this many seconds —
+// acceptable for a small personal app; shrink this if that lag ever matters.
+const VALIDATION_TTL_SECONDS = 60;
+const CHECKED_COOKIE = "sb-auth-checked-at";
+
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
+
+  const checkedAt = Number(request.cookies.get(CHECKED_COOKIE)?.value ?? 0);
+  const isFresh = Date.now() - checkedAt < VALIDATION_TTL_SECONDS * 1000;
+  const hasSessionCookie = request.cookies
+    .getAll()
+    .some((c) => c.name.startsWith("sb-") && c.name.includes("-auth-token"));
+
+  // Nothing to validate (logged out) or already validated recently: skip
+  // the network round-trip and let the request through as-is.
+  if (!hasSessionCookie || isFresh) {
+    return response;
+  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -30,8 +55,19 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  // Refreshes the auth token if expired.
-  await supabase.auth.getUser();
+  // Refreshes the auth token if expired, and validates it against Supabase.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) {
+    response.cookies.set(CHECKED_COOKIE, String(Date.now()), {
+      maxAge: VALIDATION_TTL_SECONDS,
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    });
+  }
 
   return response;
 }

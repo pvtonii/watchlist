@@ -123,6 +123,16 @@
   esse layout é dinâmico (usa `cookies()`) e não entra no Router Cache do
   Next — decidido em 2026-07-08 depois de identificar isso como a causa do
   clique/navegação lenta.
+- `proxy.ts` cacheia a validação do `getUser()` por 60s num cookie
+  (`sb-auth-checked-at`) em vez de bater na rede do Supabase em toda
+  navegação — decidido em 2026-07-08 depois de identificar esse round-trip
+  como a causa da tela branca demorada ao abrir o app (nada renderiza,
+  nem o `AppSplash`, até essa chamada resolver). Trade-off: sessão revogada
+  em outro dispositivo pode continuar válida aqui por até 60s.
+- Tela branca no boot do PWA iOS: `app/layout.tsx` define
+  `appleWebApp.startupImage` (imagens em `public/splash/`, geradas de
+  `public/icons/icon-512.png` com fundo `THEME_COLOR`) — sem isso o iOS
+  ignora o manifest pra splash e mostra branco liso até o primeiro paint.
 
 ## Ao mudar qualquer coisa (checklist de entrega)
 

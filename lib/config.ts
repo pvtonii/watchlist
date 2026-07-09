@@ -7,7 +7,7 @@
 import type { TvDetails } from "./tmdb-types";
 
 export const APP_NAME = "WatchList";
-export const APP_VERSION = "1.14.0";
+export const APP_VERSION = "1.15.0";
 export const APP_RELEASE_DATE = "2026-07-08";
 
 /** Must match the topbar/background color in globals.css (--bg-deep). */
