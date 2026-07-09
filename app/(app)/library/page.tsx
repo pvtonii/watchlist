@@ -4,9 +4,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
-import { Film, Clapperboard } from "lucide-react";
+import { Film, Clapperboard, SearchX, X } from "lucide-react";
 import Topbar from "@/components/topbar";
 import ProgressBar from "@/components/progress-bar";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   useLibrary,
@@ -63,14 +64,31 @@ const DEFAULT_PROGRESS_BY_MEDIA_TYPE: Record<MediaTypeFilter, ProgressFilter> = 
   movie: "haventStarted",
 };
 
-type SortOption = "lastWatched" | "lastAdded" | "alpha";
+type SortOption = "lastWatched" | "lastAdded" | "releaseDate" | "alpha";
 const SORT_LABELS: Record<SortOption, string> = {
   lastWatched: "Last Watched",
   lastAdded: "Last Added",
+  releaseDate: "Release Date",
   alpha: "A-Z",
 };
-const SORT_OPTIONS: readonly SortOption[] = ["lastWatched", "lastAdded", "alpha"];
+const SORT_OPTIONS: readonly SortOption[] = [
+  "lastWatched",
+  "lastAdded",
+  "releaseDate",
+  "alpha",
+];
 const DEFAULT_SORT: SortOption = "lastWatched";
+
+// "Last Watched" is meaningless for "Haven't Started" — nothing there has
+// ever been watched, so the whole list would just fall back to A-Z anyway.
+function sortOptionsFor(progress: ProgressFilter): readonly SortOption[] {
+  return progress === "haventStarted"
+    ? SORT_OPTIONS.filter((o) => o !== "lastWatched")
+    : SORT_OPTIONS;
+}
+function defaultSortFor(progress: ProgressFilter): SortOption {
+  return progress === "haventStarted" ? "lastAdded" : DEFAULT_SORT;
+}
 
 // Reads UI state (tab/media/sort) from the URL so it survives navigating
 // into a detail page and back — plain useState resets on remount, which made
@@ -87,11 +105,12 @@ function readProgress(params: URLSearchParams, mediaType: MediaTypeFilter): Prog
     ? (value as ProgressFilter)
     : DEFAULT_PROGRESS_BY_MEDIA_TYPE[mediaType];
 }
-function readSort(params: URLSearchParams): SortOption {
+function readSort(params: URLSearchParams, progress: ProgressFilter): SortOption {
   const value = params.get("sort");
-  return (SORT_OPTIONS as readonly string[]).includes(value ?? "")
+  const options = sortOptionsFor(progress);
+  return (options as readonly string[]).includes(value ?? "")
     ? (value as SortOption)
-    : DEFAULT_SORT;
+    : defaultSortFor(progress);
 }
 
 /** TV Time-style progress bucket for a library item (display-only, never persisted). */
@@ -121,11 +140,15 @@ export default function LibraryPage() {
   const [progress, setProgressState] = useState<ProgressFilter>(() =>
     readProgress(searchParams, mediaType)
   );
-  const [sortBy, setSortByState] = useState<SortOption>(() => readSort(searchParams));
+  const [sortBy, setSortByState] = useState<SortOption>(() =>
+    readSort(searchParams, readProgress(searchParams, mediaType))
+  );
+  const [searchText, setSearchText] = useState("");
   const { data: library, isLoading } = useLibrary();
   const { data: watched } = useWatchedEpisodes();
 
   const progressOptions = PROGRESS_OPTIONS_BY_MEDIA_TYPE[mediaType];
+  const sortOptions = sortOptionsFor(progress);
 
   // Mirror state into the URL (replace, not push — this is a filter tweak,
   // not a new "place" to visit) so it's whatever's there when you come back.
@@ -135,9 +158,21 @@ export default function LibraryPage() {
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }
 
-  function setProgress(next: ProgressFilter) {
+  // Switching progress can make the current sort unavailable (e.g. leaving
+  // "Last Watched" selected when moving into "Haven't Started") — fall back
+  // to a sensible default instead of leaving an invalid sort selected.
+  function applyProgress(next: ProgressFilter, patch: Record<string, string>) {
     setProgressState(next);
-    updateQuery({ progress: next });
+    if (!sortOptionsFor(next).includes(sortBy)) {
+      const fallback = defaultSortFor(next);
+      setSortByState(fallback);
+      patch.sort = fallback;
+    }
+    updateQuery(patch);
+  }
+
+  function setProgress(next: ProgressFilter) {
+    applyProgress(next, { progress: next });
   }
 
   function setSortBy(next: SortOption) {
@@ -148,8 +183,11 @@ export default function LibraryPage() {
   function selectMediaType(type: MediaTypeFilter) {
     const nextProgress = DEFAULT_PROGRESS_BY_MEDIA_TYPE[type];
     setMediaTypeState(type);
-    setProgressState(nextProgress);
-    updateQuery({ media: type, progress: nextProgress });
+    applyProgress(nextProgress, { media: type, progress: nextProgress });
+  }
+
+  function clearSearch() {
+    setSearchText("");
   }
 
   const mediaItems = useMemo(
@@ -216,6 +254,17 @@ export default function LibraryPage() {
         (a, b) =>
           b.created_at.localeCompare(a.created_at) || a.title.localeCompare(b.title)
       );
+    } else if (sortBy === "releaseDate") {
+      // Most recently released first. Nothing dated (shouldn't happen, but
+      // defensively) sorts last.
+      arr.sort((a, b) => {
+        const dateA = a.release_date;
+        const dateB = b.release_date;
+        if (!dateA && dateB) return 1;
+        if (dateA && !dateB) return -1;
+        if (dateA && dateB && dateA !== dateB) return dateB.localeCompare(dateA);
+        return a.title.localeCompare(b.title);
+      });
     } else {
       // lastWatched: TV uses the most recent episode watched_at; movies use
       // when they were marked completed. Nothing watched yet sorts last.
@@ -241,6 +290,11 @@ export default function LibraryPage() {
     return arr;
   }, [filteredItems, sortBy, lastWatched]);
 
+  const searchedItems = useMemo(() => {
+    const q = searchText.trim().toLowerCase();
+    return q ? sortedItems.filter((i) => i.title.toLowerCase().includes(q)) : sortedItems;
+  }, [sortedItems, searchText]);
+
   return (
     <>
       <Topbar
@@ -252,6 +306,27 @@ export default function LibraryPage() {
         }
       />
       <main className="content pt-1">
+        {/* search, same field as the Search screen */}
+        <div className="relative mb-3">
+          <Input
+            type="search"
+            placeholder="Search your list…"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            className="h-11 pr-9"
+          />
+          {searchText.length > 0 && (
+            <button
+              type="button"
+              onClick={clearSearch}
+              aria-label="Clear search"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-muted-foreground hover:text-foreground"
+            >
+              <X size={18} />
+            </button>
+          )}
+        </div>
+
         {/* toggle TV Shows / Movies */}
         <div className="mb-3 grid grid-cols-2 gap-2 rounded-full bg-secondary p-1">
           {MEDIA_TYPES.map((type) => (
@@ -289,7 +364,7 @@ export default function LibraryPage() {
         {/* sort */}
         <div className="mb-4 flex items-center gap-2 overflow-x-auto">
           <span className="shrink-0 text-xs font-bold text-muted-foreground">Sort:</span>
-          {SORT_OPTIONS.map((option) => (
+          {sortOptions.map((option) => (
             <button
               key={option}
               onClick={() => setSortBy(option)}
@@ -306,7 +381,14 @@ export default function LibraryPage() {
 
         {isLoading && <Skeleton className="h-40 w-full" />}
 
-        {!isLoading && sortedItems.length === 0 && (
+        {!isLoading && searchText.trim().length > 0 && searchedItems.length === 0 && (
+          <div className="mt-12 flex flex-col items-center gap-2 text-muted-foreground">
+            <SearchX size={28} />
+            <p className="text-sm">No results for “{searchText.trim()}”</p>
+          </div>
+        )}
+
+        {!isLoading && searchText.trim().length === 0 && sortedItems.length === 0 && (
           <div className="mt-12 flex flex-col items-center gap-2 text-muted-foreground">
             <Clapperboard size={28} />
             <p className="text-sm">
@@ -320,7 +402,7 @@ export default function LibraryPage() {
         )}
 
         <div className="flex flex-col gap-2.5">
-          {sortedItems.map((item) => {
+          {searchedItems.map((item) => {
             const poster = tmdbPoster(item.poster_path, "w185");
             const details =
               item.media_type === "tv" ? detailsById.get(item.tmdb_id) : null;

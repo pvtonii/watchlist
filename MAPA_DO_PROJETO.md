@@ -101,9 +101,15 @@
   "Finished" (completed, `Ended`/`Canceled` de vez, ou qualquer filme) são calculados
   na hora de exibir a partir do status do TMDB (`progressCategory` em
   `app/(app)/library/page.tsx`) — nunca gravados no banco, só leitura.
-  Sort: Last Watched (padrão) / Last Added / A-Z, iguais pra série e filme.
+  Sort: Last Watched / Last Added / Release Date / A-Z, iguais pra série e filme.
   Last Watched = `watched_at` mais recente da série (TV) ou data que o filme foi
-  marcado completed (`updated_at`); sem histórico fica por último.
+  marcado completed (`updated_at`); sem histórico fica por último. Release Date =
+  `release_date` cacheado no item (lançamento/estreia mais recente primeiro).
+  "Last Watched" some da lista de sort quando o filtro Progress é "Haven't Started"
+  (nada ali foi assistido ainda) — cai pra "Last Added" automaticamente se estava
+  selecionado (decidido em 2026-07-09).
+  Campo de busca por título (mesmo componente/estilo da tela Search) filtra a lista
+  já ordenada, client-side (decidido em 2026-07-09).
 - Profile > stats (estilo TV Time, `app/(app)/profile/page.tsx`): tempo assistido é
   aproximado — `episode_run_time` médio do TMDB por série (fallback 45min se a série
   não informar) × episódios assistidos (specials contam aqui, diferente do resto do
