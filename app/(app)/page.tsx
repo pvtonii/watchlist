@@ -2,38 +2,50 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Tv, Search } from "lucide-react";
 import Topbar from "@/components/topbar";
 import PosterCard from "@/components/poster-card";
 import ShowProgressCard from "@/components/show-progress-card";
 import AppSplash from "@/components/app-splash";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   useLibrary,
   useWatchedEpisodes,
+  useTmdb,
   useTvDetailsMany,
   watchedCountByShow,
   lastWatchedByShow,
 } from "@/lib/hooks";
-import { APP_NAME, regularEpisodeTotal, tmdbPoster } from "@/lib/config";
+import {
+  APP_NAME,
+  regularEpisodeTotal,
+  showProgressColor,
+  tmdbPoster,
+} from "@/lib/config";
 import { fmtDate, fmtDateShort, seasonEpisodeLabel } from "@/lib/format";
-import type { TvDetails } from "@/lib/tmdb-types";
+import type { TvDetails, UpcomingMoviesResponse } from "@/lib/tmdb-types";
+import { itemTitle } from "@/lib/tmdb-types";
 
 const STALE_AFTER_MS = 30 * 24 * 60 * 60 * 1000; // "haven't seen in a while" threshold
-const STALE_ROW_SIZE = 8; // "Haven't Seen" is stacked hscroll rows of up to this many
+const POSTER_GRID = "grid grid-cols-4 gap-x-2.5 gap-y-5";
 
-const HOME_TABS = ["tv", "movie", "upcoming"] as const;
+const HOME_TABS = ["tv", "movie"] as const;
 type HomeTab = (typeof HOME_TABS)[number];
 const HOME_TAB_LABELS: Record<HomeTab, string> = {
   tv: "TV Shows",
   movie: "Movies",
-  upcoming: "Upcoming",
 };
 
-function chunk<T>(arr: T[], size: number): T[][] {
-  const rows: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) rows.push(arr.slice(i, i + size));
-  return rows;
+/** Reads UI state from the URL so it survives navigating into a detail page
+ * and back — plain useState resets on remount, which made the back button
+ * seem to "forget" which tab you were on. */
+function readTab(params: URLSearchParams): HomeTab {
+  const value = params.get("tab");
+  return (HOME_TABS as readonly string[]).includes(value ?? "")
+    ? (value as HomeTab)
+    : "tv";
 }
 
 /** Approximate next unwatched episode assuming episodes are watched in order. */
@@ -51,10 +63,33 @@ function nextUnwatched(show: TvDetails, seen: number) {
   return null;
 }
 
+interface UpcomingMovieItem {
+  id: number;
+  title: string;
+  posterPath: string | null;
+  releaseDate: string | undefined;
+}
+
 export default function HomePage() {
-  const [tab, setTab] = useState<HomeTab>("tv");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [tab, setTabState] = useState<HomeTab>(() => readTab(searchParams));
+
+  function setTab(next: HomeTab) {
+    setTabState(next);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", next);
+    // replace, not push: switching tabs shouldn't stack in history, or the
+    // back button from a detail page would unwind through old tab switches
+    // instead of landing on the tab you actually drilled in from.
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }
+
   const { data: library, isLoading: libraryLoading } = useLibrary();
   const { data: watched } = useWatchedEpisodes();
+  const { data: upcomingFeed, isLoading: upcomingFeedLoading } =
+    useTmdb<UpcomingMoviesResponse>("/upcoming");
 
   const watchingShows = useMemo(
     () =>
@@ -117,7 +152,6 @@ export default function HomePage() {
       (x) => x.lastWatchedAt && now - new Date(x.lastWatchedAt).getTime() > STALE_AFTER_MS
     )
     .sort((a, b) => b.lastWatchedAt!.localeCompare(a.lastWatchedAt!));
-  const upNextStaleRows = chunk(upNextStale, STALE_ROW_SIZE);
 
   const airingSoon = shows
     .filter((s) => s.next_episode_to_air)
@@ -131,12 +165,50 @@ export default function HomePage() {
     (i) => i.media_type === "movie" && i.status === "watchlist"
   );
 
-  // Want-to-watch movies that haven't released yet — the "Upcoming" tab's
-  // movie side, mirroring airingSoon's "your list, sorted by date" shape.
+  const movieStatusById = useMemo(() => {
+    const map = new Map<number, "watchlist" | "completed">();
+    for (const i of library ?? []) {
+      if (
+        i.media_type === "movie" &&
+        (i.status === "watchlist" || i.status === "completed")
+      ) {
+        map.set(i.tmdb_id, i.status);
+      }
+    }
+    return map;
+  }, [library]);
+
+  // Want-to-watch movies that haven't released yet, in case they're missing
+  // from TMDB's own /movie/upcoming page (pagination, region quirks, etc).
   const todayIso = new Date().toISOString().slice(0, 10);
-  const upcomingWantToWatchMovies = wantToWatchMovies
-    .filter((m) => m.release_date && m.release_date >= todayIso)
-    .sort((a, b) => a.release_date!.localeCompare(b.release_date!));
+  const upcomingWantToWatchMovies = wantToWatchMovies.filter(
+    (m) => m.release_date && m.release_date >= todayIso
+  );
+
+  // TMDB's discovery feed + your own upcoming Want to Watch movies, merged
+  // and de-duped by id, sorted soonest-first.
+  const upcomingMoviesById = new Map<number, UpcomingMovieItem>();
+  for (const m of upcomingFeed?.movies ?? []) {
+    upcomingMoviesById.set(m.id, {
+      id: m.id,
+      title: itemTitle(m),
+      posterPath: m.poster_path,
+      releaseDate: m.release_date,
+    });
+  }
+  for (const m of upcomingWantToWatchMovies) {
+    if (!upcomingMoviesById.has(m.tmdb_id)) {
+      upcomingMoviesById.set(m.tmdb_id, {
+        id: m.tmdb_id,
+        title: m.title,
+        posterPath: m.poster_path,
+        releaseDate: m.release_date ?? undefined,
+      });
+    }
+  }
+  const combinedUpcomingMovies = Array.from(upcomingMoviesById.values()).sort(
+    (a, b) => (a.releaseDate ?? "").localeCompare(b.releaseDate ?? "")
+  );
 
   // One full-screen splash while the core data loads, instead of every
   // section popping in its own skeleton at a different time.
@@ -146,8 +218,8 @@ export default function HomePage() {
     <>
       <Topbar title={APP_NAME} brand />
       <main className="content flex flex-col gap-7 pt-2">
-        {/* -------- TV Shows / Movies / Upcoming tabs -------- */}
-        <div className="grid grid-cols-3 gap-2 rounded-full bg-secondary p-1">
+        {/* -------- TV Shows / Movies tabs -------- */}
+        <div className="grid grid-cols-2 gap-2 rounded-full bg-secondary p-1">
           {HOME_TABS.map((t) => (
             <button
               key={t}
@@ -190,7 +262,7 @@ export default function HomePage() {
                   Nothing watched recently — check “Haven&apos;t Seen in a While” below.
                 </p>
               ) : (
-                <div className="hscroll">
+                <div className={POSTER_GRID}>
                   {upNextRecent.map(({ show, seen, total, next }) => (
                     <ShowProgressCard
                       key={show.id}
@@ -200,6 +272,7 @@ export default function HomePage() {
                       seen={seen}
                       total={total}
                       nextLabel={`${seasonEpisodeLabel(next.season, next.episode)} up next`}
+                      color={showProgressColor("watching", show.status)}
                     />
                   ))}
                 </div>
@@ -210,69 +283,27 @@ export default function HomePage() {
             {upNextStale.length > 0 && (
               <section>
                 <h2 className="mb-3 text-base font-bold">Haven&apos;t Seen in a While</h2>
-                <div className="flex flex-col gap-2.5">
-                  {upNextStaleRows.map((row, i) => (
-                    <div key={i} className="hscroll">
-                      {row.map(({ show, seen, total }) => (
-                        <ShowProgressCard
-                          key={show.id}
-                          href={`/tv/${show.id}`}
-                          title={show.name}
-                          posterPath={show.poster_path}
-                          seen={seen}
-                          total={total}
-                          compact
-                        />
-                      ))}
-                    </div>
+                <div className={POSTER_GRID}>
+                  {upNextStale.map(({ show, seen, total }) => (
+                    <ShowProgressCard
+                      key={show.id}
+                      href={`/tv/${show.id}`}
+                      title={show.name}
+                      posterPath={show.poster_path}
+                      seen={seen}
+                      total={total}
+                      compact
+                      color={showProgressColor("watching", show.status)}
+                    />
                   ))}
                 </div>
               </section>
             )}
-          </>
-        )}
 
-        {tab === "movie" && (
-          <section>
-            <h2 className="mb-3 text-base font-bold">Want to Watch</h2>
-            {wantToWatchMovies.length === 0 ? (
-              <div className="rounded-xl bg-card p-4 text-sm text-muted-foreground">
-                Nothing marked Want to Watch yet.
-                <Link
-                  href="/search"
-                  className="mt-3 flex items-center gap-1.5 font-semibold text-primary"
-                >
-                  <Search size={14} /> Search movies
-                </Link>
-              </div>
-            ) : (
-              <div className="hscroll">
-                {wantToWatchMovies.map((item) => (
-                  <PosterCard
-                    key={item.id}
-                    id={item.tmdb_id}
-                    mediaType="movie"
-                    title={item.title}
-                    posterPath={item.poster_path}
-                    sub={fmtDate(item.release_date)}
-                    width={108}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
-        )}
-
-        {tab === "upcoming" && (
-          <>
             {/* -------- Upcoming episodes of shows you watch -------- */}
-            <section>
-              <h2 className="mb-3 text-base font-bold">Upcoming Episodes</h2>
-              {airingSoon.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No confirmed air dates for shows you track right now.
-                </p>
-              ) : (
+            {airingSoon.length > 0 && (
+              <section>
+                <h2 className="mb-3 text-base font-bold">Upcoming Episodes</h2>
                 <div className="flex flex-col gap-2.5">
                   {airingSoon.map((show) => {
                     const ep = show.next_episode_to_air!;
@@ -299,19 +330,29 @@ export default function HomePage() {
                     );
                   })}
                 </div>
-              )}
-            </section>
+              </section>
+            )}
+          </>
+        )}
 
-            {/* -------- Want-to-watch movies that haven't released yet -------- */}
+        {tab === "movie" && (
+          <>
+            {/* -------- Movies you've marked Want to Watch -------- */}
             <section>
-              <h2 className="mb-3 text-base font-bold">Upcoming Movies</h2>
-              {upcomingWantToWatchMovies.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No unreleased movies in your Want to Watch list.
-                </p>
+              <h2 className="mb-3 text-base font-bold">Want to Watch</h2>
+              {wantToWatchMovies.length === 0 ? (
+                <div className="rounded-xl bg-card p-4 text-sm text-muted-foreground">
+                  Nothing marked Want to Watch yet.
+                  <Link
+                    href="/search"
+                    className="mt-3 flex items-center gap-1.5 font-semibold text-primary"
+                  >
+                    <Search size={14} /> Search movies
+                  </Link>
+                </div>
               ) : (
-                <div className="hscroll">
-                  {upcomingWantToWatchMovies.map((item) => (
+                <div className={POSTER_GRID}>
+                  {wantToWatchMovies.map((item) => (
                     <PosterCard
                       key={item.id}
                       id={item.tmdb_id}
@@ -319,7 +360,36 @@ export default function HomePage() {
                       title={item.title}
                       posterPath={item.poster_path}
                       sub={fmtDate(item.release_date)}
-                      width={108}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {/* -------- Upcoming releases: TMDB feed + your own Want to Watch -------- */}
+            <section>
+              <h2 className="mb-3 text-base font-bold">Upcoming Movies</h2>
+              {upcomingFeedLoading ? (
+                <div className={POSTER_GRID}>
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <Skeleton key={i} className="aspect-[2/3] w-full rounded-lg" />
+                  ))}
+                </div>
+              ) : combinedUpcomingMovies.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No upcoming releases right now.
+                </p>
+              ) : (
+                <div className={POSTER_GRID}>
+                  {combinedUpcomingMovies.map((m) => (
+                    <PosterCard
+                      key={m.id}
+                      id={m.id}
+                      mediaType="movie"
+                      title={m.title}
+                      posterPath={m.posterPath}
+                      sub={fmtDate(m.releaseDate)}
+                      statusBadge={movieStatusById.get(m.id)}
                     />
                   ))}
                 </div>

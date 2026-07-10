@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { SearchX, X } from "lucide-react";
 import Topbar from "@/components/topbar";
 import PosterCard from "@/components/poster-card";
@@ -18,10 +19,26 @@ const MEDIA_FILTER_LABELS: Record<MediaFilter, string> = {
   movie: "Movies",
 };
 
+function readMediaFilter(params: URLSearchParams): MediaFilter {
+  const value = params.get("media");
+  return (MEDIA_FILTERS as readonly string[]).includes(value ?? "")
+    ? (value as MediaFilter)
+    : "all";
+}
+
 export default function SearchPage() {
-  const [text, setText] = useState("");
-  const [query, setQuery] = useState("");
-  const [mediaFilter, setMediaFilter] = useState<MediaFilter>("all");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  // Query/filter are read from the URL on mount and kept in sync as they
+  // change, so navigating into a result and back restores what you had
+  // searched instead of resetting to a blank search (plain useState resets
+  // on remount, which is what a back-navigation to this page causes).
+  const [text, setText] = useState(() => searchParams.get("q") ?? "");
+  const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
+  const [mediaFilter, setMediaFilter] = useState<MediaFilter>(() =>
+    readMediaFilter(searchParams)
+  );
   const inputRef = useRef<HTMLInputElement>(null);
 
   // debounce: só busca 400ms depois de parar de digitar
@@ -29,6 +46,14 @@ export default function SearchPage() {
     const t = setTimeout(() => setQuery(text.trim()), 400);
     return () => clearTimeout(t);
   }, [text]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (query) params.set("q", query);
+    if (mediaFilter !== "all") params.set("media", mediaFilter);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [query, mediaFilter, pathname, router]);
 
   // Dismiss the keyboard on scroll — with it open, iOS resizes the visual
   // viewport mid-scroll and the fixed bottom nav visibly drifts/follows.

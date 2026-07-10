@@ -8,8 +8,8 @@ import type { MovieDetails, TvDetails } from "./tmdb-types";
 import { fmtDate } from "./format";
 
 export const APP_NAME = "WatchList";
-export const APP_VERSION = "1.17.0";
-export const APP_RELEASE_DATE = "2026-07-09";
+export const APP_VERSION = "1.18.0";
+export const APP_RELEASE_DATE = "2026-07-10";
 
 /** Must match the topbar/background color in globals.css (--bg-deep). */
 export const THEME_COLOR = "#0c111b";

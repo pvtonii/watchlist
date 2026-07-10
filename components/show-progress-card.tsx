@@ -13,8 +13,9 @@ export default function ShowProgressCard({
   seen,
   total,
   nextLabel,
-  width = 144,
+  width,
   compact = false,
+  color,
 }: {
   href: string;
   title: string;
@@ -23,21 +24,28 @@ export default function ShowProgressCard({
   total: number;
   /** e.g. "S2E5 up next" */
   nextLabel?: string;
+  /** Fixed width for horizontal rows; omit for fluid width in grids. */
   width?: number;
   /** Poster + progress bar only — no title/caption below (dense "haven't seen" rows). */
   compact?: boolean;
+  /** Override the progress bar's default brand color, e.g. show air status. */
+  color?: string;
 }) {
   const poster = tmdbPoster(posterPath, "w342");
 
   return (
-    <Link href={href} className="block shrink-0" style={{ width }}>
+    <Link
+      href={href}
+      className="block shrink-0"
+      style={width ? { width } : undefined}
+    >
       <div className="relative aspect-[2/3] overflow-hidden rounded-lg bg-secondary">
         {poster ? (
           <Image
             src={poster}
             alt={title}
             fill
-            sizes={`${width}px`}
+            sizes={width ? `${width}px` : "25vw"}
             className="object-cover"
           />
         ) : (
@@ -46,7 +54,7 @@ export default function ShowProgressCard({
           </div>
         )}
         <div className="absolute inset-x-0 bottom-0">
-          <ProgressBar value={seen} max={total} flush />
+          <ProgressBar value={seen} max={total} flush color={color} />
         </div>
       </div>
       {!compact && (

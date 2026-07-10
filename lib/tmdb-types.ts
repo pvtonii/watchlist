@@ -19,6 +19,11 @@ export interface TmdbSearchResponse {
   results: TmdbListItem[];
 }
 
+/** Home > Movies: upcoming theatrical/streaming releases from TMDB. */
+export interface UpcomingMoviesResponse {
+  movies: TmdbListItem[];
+}
+
 export interface CastMember {
   id: number;
   name: string;

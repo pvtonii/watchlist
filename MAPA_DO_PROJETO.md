@@ -4,7 +4,7 @@
 > arquivo certo, sem reler o projeto todo.
 
 **Stack:** Next.js 16 (App Router, TS) · Tailwind v4 · shadcn/ui · Supabase (auth + Postgres/RLS) · React Query · Zod · TMDB API · Vercel
-**Versão atual:** v1.17.0 (2026-07-09) — definida em `lib/config.ts`
+**Versão atual:** v1.18.0 (2026-07-10) — definida em `lib/config.ts`
 
 ## Onde mexo pra…
 
@@ -15,7 +15,7 @@
 | Meta tags PWA (viewport, theme-color, apple-*) | `app/layout.tsx` |
 | Manifest PWA | `app/manifest.ts` |
 | Ícones do app | `public/icons/` (gerados; fundo sólido #0c111b) |
-| **Tela Home** (abas TV Shows/Movies/Upcoming: Up Next, Want to Watch, próximos episódios) | `app/(app)/page.tsx` |
+| **Tela Home** (abas TV Shows/Movies em grade de 4: Up Next, Want to Watch, Upcoming Movies) | `app/(app)/page.tsx` |
 | Tela de loading (splash de marca, cold start + `app/(app)/loading.tsx`) | `components/app-splash.tsx` |
 | **Tela Busca** | `app/(app)/search/page.tsx` |
 | **Tela My List** (filtro Progress + sort, estilo TV Time) | `app/(app)/library/page.tsx` |
@@ -51,6 +51,7 @@
 | `GET /api/tmdb/movie/[id]` | detalhes do filme + elenco + watch/providers + release_dates |
 | `GET /api/tmdb/tv/[id]` | detalhes da série + elenco + next_episode_to_air |
 | `GET /api/tmdb/tv/[id]/season/[n]` | episódios da temporada |
+| `GET /api/tmdb/upcoming` | filmes por lançar (TMDB `/movie/upcoming`), usado em Home > Movies |
 
 ## Banco (Supabase)
 
@@ -85,13 +86,13 @@
   - Remover uma série da lista de vez é via botão dedicado "Remove from list" (com
     confirmação), já que não dá mais pra tocar num chip "Watching" pra tirar da lista.
 - Tocar de novo num chip de status ativo (Want to Watch/Completed/Stopped) → remove da lista.
-- Cor da barra de progresso (My List + tela da série): roxo `#9900FF` = encerrada sem
-  mais episódios, verde `#66CC00` = ainda vai ter episódios novos, `#E50914` = Stopped
+- Cor da barra de progresso (My List, tela da série, e Home > Up Next/Haven't
+  Seen desde 2026-07-10): roxo `#9900FF` = encerrada sem mais episódios,
+  verde `#66CC00` = ainda vai ter episódios novos, `#E50914` = Stopped
   (ver `showProgressColor` em `lib/config.ts`).
 - Home > Up Next: só mostra séries assistidas nos últimos 30 dias
   (`STALE_AFTER_MS` em `app/(app)/page.tsx`); as assistidas antes disso caem
-  em "Haven't Seen in a While" (carrosséis empilhados de até 8, sem
-  título/legenda, `STALE_ROW_SIZE`), ordenadas da mais abandonada pra menos.
+  em "Haven't Seen in a While", ordenadas da mais abandonada pra menos.
   Séries nunca assistidas (status Watching sem nenhum episódio marcado)
   ficam fora da Home inteira — não aparecem em nenhuma das duas seções.
 - My List (estilo TV Time, decidido em 2026-07-06): filtro por **Progress**, não mais
@@ -123,9 +124,10 @@
   status (não exclui Stopped).
 - Sem sistema de notas na v1 (decidido em 2026-07-04).
 - UI em inglês; dados TMDB em `en-US`.
-- Home espera `library` + `upcoming` carregarem antes de renderizar (mostra
-  `AppSplash` até lá, `app/(app)/page.tsx`) — evita as seções aparecendo em
-  momentos diferentes (skeleton picotado).
+- Home espera só `library` carregar antes de renderizar (mostra `AppSplash`
+  até lá, `app/(app)/page.tsx`); o feed de Upcoming Movies (TMDB) carrega à
+  parte e mostra seu próprio skeleton em grade — não segura a tela toda,
+  já que TV Shows nem depende dele.
 - `app/(app)/layout.tsx` usa `getSession()`, não `getUser()`: o proxy
   (`proxy.ts`) já valida/atualiza o token contra o servidor da Supabase em
   toda navegação (matcher cobre quase todas as rotas); repetir `getUser()`
@@ -143,12 +145,25 @@
   `appleWebApp.startupImage` (imagens em `public/splash/`, geradas de
   `public/icons/icon-512.png` com fundo `THEME_COLOR`) — sem isso o iOS
   ignora o manifest pra splash e mostra branco liso até o primeiro paint.
-- Home (decidido em 2026-07-09): 3 abas em pílula — TV Shows (Up Next +
-  Haven't Seen in a While, igual antes), Movies (só Want to Watch) e
-  Upcoming (Upcoming Episodes das séries acompanhadas + filmes Want to
-  Watch que ainda não lançaram, ordenados por data). A vitrine de descoberta
-  "Upcoming Movies" (TMDB `/movie/upcoming`, filmes fora da sua lista) foi
-  removida — não existe mais rota `/api/tmdb/upcoming`.
+- Home (decidido em 2026-07-10, substitui a versão de 3 abas de 2026-07-09):
+  2 abas em pílula — **TV Shows** (Up Next + Haven't Seen in a While +
+  Upcoming Episodes, essa última em formato lista/linha, não em grade) e
+  **Movies** (Want to Watch + Upcoming Movies). Cards de TV (`ShowProgressCard`)
+  e de filme (`PosterCard`) usam o mesmo tamanho fluido, em grade
+  `grid-cols-4` (`POSTER_GRID` em `app/(app)/page.tsx`) — sem mais
+  carrossel horizontal nessas seções.
+  Home > Movies > Upcoming Movies junta dois grupos por `tmdb_id` (sem
+  duplicar): o feed de lançamentos da TMDB (`/api/tmdb/upcoming`) + os
+  filmes Want to Watch do usuário com `release_date` futura (cobre o caso
+  de um filme já salvo que não apareceu na primeira página do feed da
+  TMDB). Cada card mostra um badge "Want to Watch"/"Watched"
+  (`statusBadge` em `components/poster-card.tsx`) quando o filme já está
+  na sua lista.
+  Aba selecionada persiste em `?tab=` na URL (mesmo padrão de My List) —
+  necessário pra voltar de um detalhe (filme/série) e cair na aba em que
+  você estava, não sempre em TV Shows (useState puro reseta no remount que
+  a navegação de volta causa). A tela de Busca (`app/(app)/search/page.tsx`)
+  ganhou o mesmo tratamento pra `?q=`/`?media=`, pelo mesmo motivo.
 - Disponibilidade de filme (`movieAvailability` em `lib/config.ts`, região
   fixa `AVAILABILITY_REGION = "US"`, decidido em 2026-07-09): heurística
   best-effort mostrada em My List (linha do filme) e na tela de detalhe —
