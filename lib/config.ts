@@ -4,10 +4,11 @@
  * A cada mudança: subir APP_VERSION (MAIOR.MENOR.CORREÇÃO) e APP_RELEASE_DATE
  * (data real da entrega). O footer lê daqui automaticamente.
  */
-import type { TvDetails } from "./tmdb-types";
+import type { MovieDetails, TvDetails } from "./tmdb-types";
+import { fmtDate } from "./format";
 
 export const APP_NAME = "WatchList";
-export const APP_VERSION = "1.16.1";
+export const APP_VERSION = "1.17.0";
 export const APP_RELEASE_DATE = "2026-07-09";
 
 /** Must match the topbar/background color in globals.css (--bg-deep). */
@@ -97,6 +98,64 @@ export function showProgressColor(
     return ended ? SHOW_PROGRESS_COLORS.ended : SHOW_PROGRESS_COLORS.continuing;
   }
   return undefined;
+}
+
+/**
+ * Region used for "where to watch" / "in theaters" lookups (TMDB's
+ * watch-provider and release-dates data is region-specific).
+ */
+export const AVAILABILITY_REGION = "US";
+
+/** ~how long after a theatrical release we still call it "In Theaters". */
+const THEATERS_WINDOW_MS = 60 * 24 * 60 * 60 * 1000;
+
+export type MovieAvailability =
+  | { kind: "upcoming"; label: string }
+  | { kind: "theaters"; label: string }
+  | { kind: "streaming"; label: string }
+  | { kind: "released"; label: string }
+  | { kind: "unknown" };
+
+/**
+ * Best-effort "where does this movie stand right now" — upcoming release,
+ * still in theaters, streaming somewhere, or just released with no further
+ * signal. TMDB's coverage of watch-provider/release-type data isn't
+ * complete for every title, so this always falls back to the plain release
+ * date rather than guessing.
+ */
+export function movieAvailability(movie: MovieDetails): MovieAvailability {
+  const releaseDate = movie.release_date || null;
+  if (!releaseDate) return { kind: "unknown" };
+
+  const now = Date.now();
+  const releaseTime = new Date(`${releaseDate}T12:00:00`).getTime();
+  if (!Number.isNaN(releaseTime) && releaseTime > now) {
+    return { kind: "upcoming", label: `Releases ${fmtDate(releaseDate)}` };
+  }
+
+  const providers = movie.watch_providers?.results?.[AVAILABILITY_REGION];
+  const streamProviders = providers?.flatrate ?? providers?.rent ?? providers?.buy;
+  if (streamProviders && streamProviders.length > 0) {
+    const names = streamProviders.slice(0, 2).map((p) => p.provider_name);
+    return { kind: "streaming", label: `Streaming on ${names.join(", ")}` };
+  }
+
+  const regionReleases = movie.release_dates?.results?.find(
+    (r) => r.iso_3166_1 === AVAILABILITY_REGION
+  )?.release_dates;
+  // type 2 = limited theatrical, 3 = theatrical, 4 = digital, 6 = TV.
+  const theatrical = regionReleases
+    ?.filter((r) => r.type === 2 || r.type === 3)
+    .sort((a, b) => b.release_date.localeCompare(a.release_date))[0];
+  const hasDigitalOrTv = regionReleases?.some((r) => r.type === 4 || r.type === 6);
+  if (theatrical && !hasDigitalOrTv) {
+    const theatricalTime = new Date(theatrical.release_date).getTime();
+    if (!Number.isNaN(theatricalTime) && now - theatricalTime <= THEATERS_WINDOW_MS) {
+      return { kind: "theaters", label: "In Theaters" };
+    }
+  }
+
+  return { kind: "released", label: `Released ${fmtDate(releaseDate)}` };
 }
 
 /* ---------------- TMDB image helpers ---------------- */

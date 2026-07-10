@@ -14,7 +14,7 @@ import {
 } from "@/lib/hooks";
 import { fmtDate, fmtDateTime } from "@/lib/format";
 import type { MovieDetails } from "@/lib/tmdb-types";
-import type { LibraryStatus } from "@/lib/config";
+import { movieAvailability, type LibraryStatus } from "@/lib/config";
 
 export default function MoviePage({
   params,
@@ -74,6 +74,15 @@ export default function MoviePage({
                   .join(" · "),
               ]}
             />
+
+            {(() => {
+              const availability = movieAvailability(movie);
+              return availability.kind !== "unknown" ? (
+                <span className="-mt-3 self-center rounded-full bg-secondary px-3 py-1 text-xs font-bold text-primary">
+                  {availability.label}
+                </span>
+              ) : null;
+            })()}
 
             {/* actions: tocar de novo remove da lista */}
             <div className="grid grid-cols-2 gap-3">

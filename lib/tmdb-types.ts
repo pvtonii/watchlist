@@ -19,16 +19,34 @@ export interface TmdbSearchResponse {
   results: TmdbListItem[];
 }
 
-export interface UpcomingResponse {
-  movies: TmdbListItem[];
-  tv: TmdbListItem[];
-}
-
 export interface CastMember {
   id: number;
   name: string;
   character: string;
   profile_path: string | null;
+}
+
+export interface WatchProviderEntry {
+  provider_name: string;
+}
+
+export interface WatchProvidersResponse {
+  results: Record<
+    string,
+    {
+      link: string;
+      flatrate?: WatchProviderEntry[];
+      rent?: WatchProviderEntry[];
+      buy?: WatchProviderEntry[];
+    }
+  >;
+}
+
+export interface ReleaseDatesResponse {
+  results: {
+    iso_3166_1: string;
+    release_dates: { type: number; release_date: string }[];
+  }[];
 }
 
 export interface MovieDetails {
@@ -41,6 +59,9 @@ export interface MovieDetails {
   runtime: number | null;
   genres: { id: number; name: string }[];
   credits?: { cast: CastMember[] };
+  /** Re-keyed from TMDB's `"watch/providers"` field by our API route. */
+  watch_providers?: WatchProvidersResponse;
+  release_dates?: ReleaseDatesResponse;
 }
 
 export interface SeasonSummary {

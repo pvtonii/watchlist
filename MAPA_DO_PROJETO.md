@@ -4,7 +4,7 @@
 > arquivo certo, sem reler o projeto todo.
 
 **Stack:** Next.js 16 (App Router, TS) · Tailwind v4 · shadcn/ui · Supabase (auth + Postgres/RLS) · React Query · Zod · TMDB API · Vercel
-**Versão atual:** v1.14.0 (2026-07-08) — definida em `lib/config.ts`
+**Versão atual:** v1.17.0 (2026-07-09) — definida em `lib/config.ts`
 
 ## Onde mexo pra…
 
@@ -15,7 +15,7 @@
 | Meta tags PWA (viewport, theme-color, apple-*) | `app/layout.tsx` |
 | Manifest PWA | `app/manifest.ts` |
 | Ícones do app | `public/icons/` (gerados; fundo sólido #0c111b) |
-| **Tela Home** (Up Next, próximos episódios, lançamentos) | `app/(app)/page.tsx` |
+| **Tela Home** (abas TV Shows/Movies/Upcoming: Up Next, Want to Watch, próximos episódios) | `app/(app)/page.tsx` |
 | Tela de loading (splash de marca, cold start + `app/(app)/loading.tsx`) | `components/app-splash.tsx` |
 | **Tela Busca** | `app/(app)/search/page.tsx` |
 | **Tela My List** (filtro Progress + sort, estilo TV Time) | `app/(app)/library/page.tsx` |
@@ -48,10 +48,9 @@
 | Rota | Retorna |
 |---|---|
 | `GET /api/tmdb/search?q=` | busca multi (filmes + séries) |
-| `GET /api/tmdb/movie/[id]` | detalhes do filme + elenco |
+| `GET /api/tmdb/movie/[id]` | detalhes do filme + elenco + watch/providers + release_dates |
 | `GET /api/tmdb/tv/[id]` | detalhes da série + elenco + next_episode_to_air |
 | `GET /api/tmdb/tv/[id]/season/[n]` | episódios da temporada |
-| `GET /api/tmdb/upcoming` | filmes por lançar + séries no ar |
 
 ## Banco (Supabase)
 
@@ -144,6 +143,20 @@
   `appleWebApp.startupImage` (imagens em `public/splash/`, geradas de
   `public/icons/icon-512.png` com fundo `THEME_COLOR`) — sem isso o iOS
   ignora o manifest pra splash e mostra branco liso até o primeiro paint.
+- Home (decidido em 2026-07-09): 3 abas em pílula — TV Shows (Up Next +
+  Haven't Seen in a While, igual antes), Movies (só Want to Watch) e
+  Upcoming (Upcoming Episodes das séries acompanhadas + filmes Want to
+  Watch que ainda não lançaram, ordenados por data). A vitrine de descoberta
+  "Upcoming Movies" (TMDB `/movie/upcoming`, filmes fora da sua lista) foi
+  removida — não existe mais rota `/api/tmdb/upcoming`.
+- Disponibilidade de filme (`movieAvailability` em `lib/config.ts`, região
+  fixa `AVAILABILITY_REGION = "US"`, decidido em 2026-07-09): heurística
+  best-effort mostrada em My List (linha do filme) e na tela de detalhe —
+  `Releases {data}` se ainda não lançou; `In Theaters` se tem release
+  teatral nos EUA nos últimos ~60 dias e nenhum lançamento digital/TV ainda;
+  `Streaming on {provedores}` se a TMDB lista flatrate/rent/buy pra região;
+  senão cai pra `Released {data}`. Sem dado de data nenhum, não mostra nada
+  (cobertura da TMDB varia por título).
 
 ## Ao mudar qualquer coisa (checklist de entrega)
 

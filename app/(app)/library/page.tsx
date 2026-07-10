@@ -20,6 +20,7 @@ import {
 } from "@/lib/hooks";
 import {
   ENDED_TV_STATUSES,
+  movieAvailability,
   regularEpisodeTotal,
   showProgressColor,
   tmdbPoster,
@@ -438,6 +439,9 @@ export default function LibraryPage() {
                   details.last_episode_to_air?.air_date
                 )
               : fmtMonthYear(item.release_date);
+            const availability = movieDetails
+              ? movieAvailability(movieDetails)
+              : null;
 
             return (
               <Link
@@ -465,6 +469,11 @@ export default function LibraryPage() {
                   <p className="text-xs text-muted-foreground">
                     {[genre, dateLabel].filter(Boolean).join(" · ")}
                   </p>
+                  {availability && availability.kind !== "unknown" && (
+                    <span className="mt-1 inline-block rounded-full bg-secondary px-2 py-0.5 text-[11px] font-bold text-primary">
+                      {availability.label}
+                    </span>
+                  )}
                   {item.status === "completed" && (
                     <p className="text-[11px] text-primary">
                       Watched {fmtDateTime(item.updated_at)}
