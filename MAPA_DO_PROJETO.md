@@ -4,7 +4,7 @@
 > arquivo certo, sem reler o projeto todo.
 
 **Stack:** Next.js 16 (App Router, TS) · Tailwind v4 · shadcn/ui · Supabase (auth + Postgres/RLS) · React Query · Zod · TMDB API · Vercel
-**Versão atual:** v1.18.2 (2026-07-10) — definida em `lib/config.ts`
+**Versão atual:** v1.18.3 (2026-07-10) — definida em `lib/config.ts`
 
 ## Onde mexo pra…
 

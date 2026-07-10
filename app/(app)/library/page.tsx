@@ -449,18 +449,18 @@ export default function LibraryPage() {
                 href={`/${item.media_type}/${item.tmdb_id}`}
                 className="flex items-center gap-3 rounded-xl bg-card p-2.5"
               >
-                <div className="relative h-[72px] w-12 shrink-0 overflow-hidden rounded-md bg-secondary">
+                <div className="relative h-24 w-16 shrink-0 overflow-hidden rounded-md bg-secondary">
                   {poster ? (
                     <Image
                       src={poster}
                       alt={item.title}
                       fill
-                      sizes="48px"
+                      sizes="64px"
                       className="object-cover"
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center text-muted-foreground">
-                      <Film size={18} />
+                      <Film size={20} />
                     </div>
                   )}
                 </div>
