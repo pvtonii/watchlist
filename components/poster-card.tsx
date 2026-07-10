@@ -6,12 +6,6 @@ import { Film, Check, Star } from "lucide-react";
 import { tmdbPoster } from "@/lib/config";
 import type { MediaType } from "@/lib/tmdb-types";
 
-/** Movies only ever sit in one of these two library statuses in practice. */
-const STATUS_BADGE_LABELS = {
-  watchlist: "Want to Watch",
-  completed: "Watched",
-} as const;
-
 export default function PosterCard({
   id,
   mediaType,
@@ -21,7 +15,6 @@ export default function PosterCard({
   width,
   inLibrary,
   rating,
-  statusBadge,
 }: {
   id: number;
   mediaType: MediaType;
@@ -30,12 +23,10 @@ export default function PosterCard({
   sub?: string;
   /** Fixed width for horizontal rows; omit for fluid width in grids. */
   width?: number;
-  /** Shows a checkmark badge — already in the user's library. */
+  /** Shows a checkmark badge — already in the user's library, regardless of status. */
   inLibrary?: boolean;
   /** TMDB vote_average (0-10) — shown as a community rating badge. */
   rating?: number;
-  /** Shows a labeled pill instead of the generic checkmark (takes priority over `inLibrary`). */
-  statusBadge?: keyof typeof STATUS_BADGE_LABELS;
 }) {
   const poster = tmdbPoster(posterPath);
 
@@ -59,19 +50,13 @@ export default function PosterCard({
             <Film size={28} />
           </div>
         )}
-        {statusBadge ? (
-          <div className="absolute right-1 top-1 max-w-[80%] rounded-full bg-primary px-1.5 py-0.5 text-center text-[9px] font-bold leading-tight text-primary-foreground shadow">
-            {STATUS_BADGE_LABELS[statusBadge]}
+        {inLibrary && (
+          <div
+            title="In your list"
+            className="absolute right-1.5 top-1.5 rounded-full bg-primary p-1 text-primary-foreground shadow"
+          >
+            <Check size={12} strokeWidth={3} />
           </div>
-        ) : (
-          inLibrary && (
-            <div
-              title="In your list"
-              className="absolute right-1.5 top-1.5 rounded-full bg-primary p-1 text-primary-foreground shadow"
-            >
-              <Check size={12} strokeWidth={3} />
-            </div>
-          )
         )}
         {typeof rating === "number" && rating > 0 && (
           <div className="absolute bottom-1.5 left-1.5 flex items-center gap-0.5 rounded-full bg-black/70 px-1.5 py-0.5 text-white shadow">

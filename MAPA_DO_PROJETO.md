@@ -4,7 +4,7 @@
 > arquivo certo, sem reler o projeto todo.
 
 **Stack:** Next.js 16 (App Router, TS) · Tailwind v4 · shadcn/ui · Supabase (auth + Postgres/RLS) · React Query · Zod · TMDB API · Vercel
-**Versão atual:** v1.18.0 (2026-07-10) — definida em `lib/config.ts`
+**Versão atual:** v1.18.1 (2026-07-10) — definida em `lib/config.ts`
 
 ## Onde mexo pra…
 
@@ -51,7 +51,7 @@
 | `GET /api/tmdb/movie/[id]` | detalhes do filme + elenco + watch/providers + release_dates |
 | `GET /api/tmdb/tv/[id]` | detalhes da série + elenco + next_episode_to_air |
 | `GET /api/tmdb/tv/[id]/season/[n]` | episódios da temporada |
-| `GET /api/tmdb/upcoming` | filmes por lançar (TMDB `/movie/upcoming`), usado em Home > Movies |
+| `GET /api/tmdb/upcoming` | filmes por lançar nos próximos 120 dias (TMDB `/discover/movie`, popularidade → reordenado por data), usado em Home > Movies |
 
 ## Banco (Supabase)
 
@@ -155,10 +155,11 @@
   Home > Movies > Upcoming Movies junta dois grupos por `tmdb_id` (sem
   duplicar): o feed de lançamentos da TMDB (`/api/tmdb/upcoming`) + os
   filmes Want to Watch do usuário com `release_date` futura (cobre o caso
-  de um filme já salvo que não apareceu na primeira página do feed da
-  TMDB). Cada card mostra um badge "Want to Watch"/"Watched"
-  (`statusBadge` em `components/poster-card.tsx`) quando o filme já está
-  na sua lista.
+  de um filme já salvo que não apareceu no feed da TMDB). Cada card mostra
+  o mesmo badge de check genérico da tela Search (`inLibrary` em
+  `components/poster-card.tsx`) quando o filme já está na sua lista, sem
+  distinguir o status (decidido em 2026-07-10: só interessa saber que já
+  foi salvo).
   Aba selecionada persiste em `?tab=` na URL (mesmo padrão de My List) —
   necessário pra voltar de um detalhe (filme/série) e cair na aba em que
   você estava, não sempre em TV Shows (useState puro reseta no remount que

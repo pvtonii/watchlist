@@ -165,18 +165,15 @@ export default function HomePage() {
     (i) => i.media_type === "movie" && i.status === "watchlist"
   );
 
-  const movieStatusById = useMemo(() => {
-    const map = new Map<number, "watchlist" | "completed">();
-    for (const i of library ?? []) {
-      if (
-        i.media_type === "movie" &&
-        (i.status === "watchlist" || i.status === "completed")
-      ) {
-        map.set(i.tmdb_id, i.status);
-      }
-    }
-    return map;
-  }, [library]);
+  const movieIdsInLibrary = useMemo(
+    () =>
+      new Set(
+        (library ?? [])
+          .filter((i) => i.media_type === "movie")
+          .map((i) => i.tmdb_id)
+      ),
+    [library]
+  );
 
   // Want-to-watch movies that haven't released yet, in case they're missing
   // from TMDB's own /movie/upcoming page (pagination, region quirks, etc).
@@ -389,7 +386,7 @@ export default function HomePage() {
                       title={m.title}
                       posterPath={m.posterPath}
                       sub={fmtDate(m.releaseDate)}
-                      statusBadge={movieStatusById.get(m.id)}
+                      inLibrary={movieIdsInLibrary.has(m.id)}
                     />
                   ))}
                 </div>
