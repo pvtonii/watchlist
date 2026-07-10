@@ -104,7 +104,12 @@
   Sort: Last Watched / Last Added / Release Date / A-Z, iguais pra série e filme.
   Last Watched = `watched_at` mais recente da série (TV) ou data que o filme foi
   marcado completed (`updated_at`); sem histórico fica por último. Release Date =
-  `release_date` cacheado no item (lançamento/estreia mais recente primeiro).
+  pra filme, `release_date` cacheado no item; pra série, `last_episode_to_air.air_date`
+  do TMDB (episódio mais recente já ao ar, não a estreia) — cai pro `release_date`
+  cacheado (estreia) enquanto os detalhes da série ainda não carregaram ou se não há
+  episódio ao ar ainda (decidido em 2026-07-09: assim uma série antiga que ainda
+  lança episódios novos sobe na lista junto com elas, não fica presa na data de
+  estreia).
   "Last Watched" some da lista de sort quando o filtro Progress é "Haven't Started"
   (nada ali foi assistido ainda) — cai pra "Last Added" automaticamente se estava
   selecionado (decidido em 2026-07-09).

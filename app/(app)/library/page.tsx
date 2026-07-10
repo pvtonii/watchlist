@@ -255,11 +255,22 @@ export default function LibraryPage() {
           b.created_at.localeCompare(a.created_at) || a.title.localeCompare(b.title)
       );
     } else if (sortBy === "releaseDate") {
-      // Most recently released first. Nothing dated (shouldn't happen, but
-      // defensively) sorts last.
+      // Most recently released first. TV uses the latest aired episode (not
+      // the show's premiere) so an old show still airing new episodes sorts
+      // near the top; falls back to the premiere date while details haven't
+      // loaded yet or the show has no aired episodes. Movies use their
+      // release date. Nothing dated (shouldn't happen) sorts last.
       arr.sort((a, b) => {
-        const dateA = a.release_date;
-        const dateB = b.release_date;
+        const dateA =
+          a.media_type === "tv"
+            ? (detailsById.get(a.tmdb_id)?.last_episode_to_air?.air_date ??
+              a.release_date)
+            : a.release_date;
+        const dateB =
+          b.media_type === "tv"
+            ? (detailsById.get(b.tmdb_id)?.last_episode_to_air?.air_date ??
+              b.release_date)
+            : b.release_date;
         if (!dateA && dateB) return 1;
         if (dateA && !dateB) return -1;
         if (dateA && dateB && dateA !== dateB) return dateB.localeCompare(dateA);
@@ -288,7 +299,7 @@ export default function LibraryPage() {
       });
     }
     return arr;
-  }, [filteredItems, sortBy, lastWatched]);
+  }, [filteredItems, sortBy, lastWatched, detailsById]);
 
   const searchedItems = useMemo(() => {
     const q = searchText.trim().toLowerCase();
