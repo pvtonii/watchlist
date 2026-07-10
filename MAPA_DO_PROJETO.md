@@ -4,7 +4,7 @@
 > arquivo certo, sem reler o projeto todo.
 
 **Stack:** Next.js 16 (App Router, TS) · Tailwind v4 · shadcn/ui · Supabase (auth + Postgres/RLS) · React Query · Zod · TMDB API · Vercel
-**Versão atual:** v1.18.1 (2026-07-10) — definida em `lib/config.ts`
+**Versão atual:** v1.18.2 (2026-07-10) — definida em `lib/config.ts`
 
 ## Onde mexo pra…
 
@@ -168,11 +168,17 @@
 - Disponibilidade de filme (`movieAvailability` em `lib/config.ts`, região
   fixa `AVAILABILITY_REGION = "US"`, decidido em 2026-07-09): heurística
   best-effort mostrada em My List (linha do filme) e na tela de detalhe —
-  `Releases {data}` se ainda não lançou; `In Theaters` se tem release
-  teatral nos EUA nos últimos ~60 dias e nenhum lançamento digital/TV ainda;
-  `Streaming on {provedores}` se a TMDB lista flatrate/rent/buy pra região;
-  senão cai pra `Released {data}`. Sem dado de data nenhum, não mostra nada
-  (cobertura da TMDB varia por título).
+  `Releases {data}` se ainda não lançou; `Theaters` se tem release teatral
+  nos EUA nos últimos ~60 dias e nenhum lançamento digital/TV ainda; nomes
+  dos serviços de streaming (ex: `Netflix, HBO Max`) se a TMDB lista
+  flatrate/rent/buy pra região; senão cai pra `Released {data}`. Sem dado de
+  data nenhum, não mostra nada (cobertura da TMDB varia por título).
+  Nomes de provedor passam por `cleanProviderName`/`uniqueProviderNames`
+  (`lib/config.ts`, decidido em 2026-07-10) antes de exibir: a TMDB lista
+  cada revenda/nível de assinatura como provedor separado (ex: "Netflix
+  Standard with Ads", "HBO Max Amazon Channel", "Paramount Plus Premium")
+  — isso remove sufixos de canal/revenda e nível de plano e normaliza
+  "X Plus" → "X+", pra não repetir a mesma marca duas vezes no badge.
 
 ## Ao mudar qualquer coisa (checklist de entrega)
 

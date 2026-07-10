@@ -8,7 +8,7 @@ import type { MovieDetails, TvDetails } from "./tmdb-types";
 import { fmtDate } from "./format";
 
 export const APP_NAME = "WatchList";
-export const APP_VERSION = "1.18.1";
+export const APP_VERSION = "1.18.2";
 export const APP_RELEASE_DATE = "2026-07-10";
 
 /** Must match the topbar/background color in globals.css (--bg-deep). */
@@ -106,8 +106,34 @@ export function showProgressColor(
  */
 export const AVAILABILITY_REGION = "US";
 
-/** ~how long after a theatrical release we still call it "In Theaters". */
+/** ~how long after a theatrical release we still call it "Theaters". */
 const THEATERS_WINDOW_MS = 60 * 24 * 60 * 60 * 1000;
+
+/**
+ * TMDB lists every tier/reseller of a service as its own provider (e.g.
+ * "Netflix" AND "Netflix Standard with Ads", "HBO Max" AND "HBO Max Amazon
+ * Channel") — strips those suffixes down to the plain brand name so the
+ * same service doesn't show up twice under different labels.
+ */
+function cleanProviderName(name: string): string {
+  return name
+    .replace(/\s+(Amazon|Roku(?:\s+Premium)?|Apple\s?TV)\s+Channel$/i, "")
+    .replace(/\s+(?:(?:Basic|Standard)\s+)?with Ads$/i, "")
+    .replace(/\s+(Premium|Essential|Standard|Basic)$/i, "")
+    .replace(/\s+Plus$/i, "+")
+    .trim();
+}
+
+/** De-dupes cleaned provider names case-insensitively, keeping first-seen casing. */
+function uniqueProviderNames(providers: { provider_name: string }[]): string[] {
+  const seen = new Map<string, string>();
+  for (const p of providers) {
+    const cleaned = cleanProviderName(p.provider_name);
+    const key = cleaned.toLowerCase();
+    if (!seen.has(key)) seen.set(key, cleaned);
+  }
+  return Array.from(seen.values());
+}
 
 export type MovieAvailability =
   | { kind: "upcoming"; label: string }
@@ -136,8 +162,8 @@ export function movieAvailability(movie: MovieDetails): MovieAvailability {
   const providers = movie.watch_providers?.results?.[AVAILABILITY_REGION];
   const streamProviders = providers?.flatrate ?? providers?.rent ?? providers?.buy;
   if (streamProviders && streamProviders.length > 0) {
-    const names = streamProviders.slice(0, 2).map((p) => p.provider_name);
-    return { kind: "streaming", label: `Streaming on ${names.join(", ")}` };
+    const names = uniqueProviderNames(streamProviders).slice(0, 2);
+    return { kind: "streaming", label: names.join(", ") };
   }
 
   const regionReleases = movie.release_dates?.results?.find(
@@ -151,7 +177,7 @@ export function movieAvailability(movie: MovieDetails): MovieAvailability {
   if (theatrical && !hasDigitalOrTv) {
     const theatricalTime = new Date(theatrical.release_date).getTime();
     if (!Number.isNaN(theatricalTime) && now - theatricalTime <= THEATERS_WINDOW_MS) {
-      return { kind: "theaters", label: "In Theaters" };
+      return { kind: "theaters", label: "Theaters" };
     }
   }
 
