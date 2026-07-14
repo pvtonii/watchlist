@@ -72,17 +72,19 @@ export function releasedEpisodeCount(show: TvDetails): number {
 }
 
 /**
- * Derives whether a TV show is "completed" (caught up on every regular
- * episode released so far) or "watching" (still has a backlog). This is
- * intentionally re-evaluated against live TMDB data every time it's called
- * (never just trusted from a stored flag) — a show that was fully caught up
- * yesterday may have a new episode out today, which should flip it back to
- * "watching" the next time anything checks.
+ * Derives a TV show's library status from real progress: caught up on every
+ * regular episode released so far → "completed", nothing watched → back to
+ * "watchlist", anything in between → "watching". This is intentionally
+ * re-evaluated against live TMDB data every time it's called (never just
+ * trusted from a stored flag) — a show that was fully caught up yesterday
+ * may have a new episode out today, which should flip it back to "watching"
+ * the next time anything checks.
  */
 export function deriveTvLibraryStatus(
   seenCount: number,
   show: TvDetails
-): "watching" | "completed" {
+): "watchlist" | "watching" | "completed" {
+  if (seenCount <= 0) return "watchlist";
   const released = releasedEpisodeCount(show);
   return released > 0 && seenCount >= released ? "completed" : "watching";
 }
