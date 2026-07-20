@@ -19,6 +19,16 @@ import { NextResponse, type NextRequest } from "next/server";
 const VALIDATION_TTL_SECONDS = 60;
 const CHECKED_COOKIE = "sb-auth-checked-at";
 
+// The cache above only helps *rapid* navigation. A cold open (the exact
+// moment the user is staring at a blank screen) almost always happens after
+// the TTL has expired, so it still paid the full network latency — on a
+// slow connection that's the multi-second white screen. Cap the wait: if
+// Supabase doesn't answer in time, let the request through on the strength
+// of the (already `@supabase/ssr`-verified) session cookie alone and don't
+// mark it as checked, so the next navigation retries. Data stays protected
+// by RLS regardless of this check's outcome.
+const NETWORK_TIMEOUT_MS = 400;
+
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -55,10 +65,15 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  // Refreshes the auth token if expired, and validates it against Supabase.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Refreshes the auth token if expired, and validates it against Supabase —
+  // raced against NETWORK_TIMEOUT_MS so a slow/cold connection can't block
+  // the first paint (see comment above).
+  const user = await Promise.race([
+    supabase.auth.getUser().then(({ data }) => data.user),
+    new Promise<null>((resolve) =>
+      setTimeout(() => resolve(null), NETWORK_TIMEOUT_MS)
+    ),
+  ]);
 
   if (user) {
     response.cookies.set(CHECKED_COOKIE, String(Date.now()), {
