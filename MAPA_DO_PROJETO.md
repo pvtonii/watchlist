@@ -141,6 +141,14 @@
   como a causa da tela branca demorada ao abrir o app (nada renderiza,
   nem o `AppSplash`, até essa chamada resolver). Trade-off: sessão revogada
   em outro dispositivo pode continuar válida aqui por até 60s.
+  Esse cache só ajuda navegação rápida — cold open (abrir o app depois de
+  um tempo fora) é justamente o caso em que os 60s já expiraram, então
+  continuava pagando a rede inteira antes do primeiro paint. Por isso o
+  `getUser()` roda com `Promise.race` contra 400ms (`NETWORK_TIMEOUT_MS`,
+  decidido em 2026-07-19): se a Supabase não responde a tempo, a requisição
+  passa mesmo assim (cookie de sessão já validado pelo `@supabase/ssr`
+  local) e não marca como "checked", pra tentar de novo na próxima
+  navegação. RLS protege os dados independente do resultado desse check.
 - Tela branca no boot do PWA iOS: `app/layout.tsx` define
   `appleWebApp.startupImage` (imagens em `public/splash/`, geradas de
   `public/icons/icon-512.png` com fundo `THEME_COLOR`) — sem isso o iOS
