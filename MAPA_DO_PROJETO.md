@@ -128,6 +128,19 @@
   até lá, `app/(app)/page.tsx`); o feed de Upcoming Movies (TMDB) carrega à
   parte e mostra seu próprio skeleton em grade — não segura a tela toda,
   já que TV Shows nem depende dele.
+- `components/providers.tsx` persiste o cache do React Query
+  (`library`/`watched-episodes`) em `localStorage` via
+  `PersistQueryClientProvider` (decidido em 2026-08-16, depois de identificar
+  que abertura fria do PWA sempre pagava uma ida-e-volta de rede antes do
+  primeiro paint da Home, mesmo com o proxy já limitando a checagem de auth
+  — sem cache local não havia nada pra mostrar enquanto isso). `isLoading`
+  do `useLibrary()` fica `false` assim que existe dado persistido, então a
+  `AppSplash` só aparece de fato na primeira abertura (sem cache ainda).
+  Queries de detalhe da TMDB (`/tmdb/*`) ficam de fora do persist —
+  `shouldDehydrateQuery` filtra por `queryKey[0]` — pra não inchar o
+  `localStorage` com dezenas de entradas de pouco ganho (TMDB já responde
+  rápido). `gcTime` do `QueryClient` subiu pra 24h (era o default de 5min)
+  pra cobrir o `maxAge` do persister.
 - `app/(app)/layout.tsx` usa `getSession()`, não `getUser()`: o proxy
   (`proxy.ts`) já valida/atualiza o token contra o servidor da Supabase em
   toda navegação (matcher cobre quase todas as rotas); repetir `getUser()`
