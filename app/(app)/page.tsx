@@ -161,9 +161,9 @@ export default function HomePage() {
       )
     );
 
-  const wantToWatchMovies = (library ?? []).filter(
-    (i) => i.media_type === "movie" && i.status === "watchlist"
-  );
+  const wantToWatchMovies = (library ?? [])
+    .filter((i) => i.media_type === "movie" && i.status === "watchlist")
+    .sort((a, b) => (a.release_date ?? "").localeCompare(b.release_date ?? ""));
 
   const movieIdsInLibrary = useMemo(
     () =>
@@ -234,6 +234,39 @@ export default function HomePage() {
 
         {tab === "tv" && (
           <>
+            {/* -------- Upcoming episodes of shows you watch -------- */}
+            {airingSoon.length > 0 && (
+              <section>
+                <h2 className="mb-3 text-base font-bold">Upcoming Episodes</h2>
+                <div className="flex flex-col gap-2.5">
+                  {airingSoon.map((show) => {
+                    const ep = show.next_episode_to_air!;
+                    return (
+                      <Link
+                        key={show.id}
+                        href={`/tv/${show.id}`}
+                        className="flex items-center gap-3 rounded-xl bg-card p-2.5"
+                      >
+                        <ShowPoster path={show.poster_path} alt={show.name} />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold">
+                            {show.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {seasonEpisodeLabel(ep.season_number, ep.episode_number)}
+                            {ep.name ? ` · ${ep.name}` : ""}
+                          </p>
+                        </div>
+                        <span className="shrink-0 rounded-full bg-secondary px-2.5 py-1 text-xs font-bold text-primary">
+                          {fmtDateShort(ep.air_date)}
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
             {/* -------- Up Next (continue watching, recently active) -------- */}
             <section>
               <h2 className="mb-3 text-base font-bold">Up Next</h2>
@@ -293,39 +326,6 @@ export default function HomePage() {
                       color={showProgressColor("watching", show.status)}
                     />
                   ))}
-                </div>
-              </section>
-            )}
-
-            {/* -------- Upcoming episodes of shows you watch -------- */}
-            {airingSoon.length > 0 && (
-              <section>
-                <h2 className="mb-3 text-base font-bold">Upcoming Episodes</h2>
-                <div className="flex flex-col gap-2.5">
-                  {airingSoon.map((show) => {
-                    const ep = show.next_episode_to_air!;
-                    return (
-                      <Link
-                        key={show.id}
-                        href={`/tv/${show.id}`}
-                        className="flex items-center gap-3 rounded-xl bg-card p-2.5"
-                      >
-                        <ShowPoster path={show.poster_path} alt={show.name} />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold">
-                            {show.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {seasonEpisodeLabel(ep.season_number, ep.episode_number)}
-                            {ep.name ? ` · ${ep.name}` : ""}
-                          </p>
-                        </div>
-                        <span className="shrink-0 rounded-full bg-secondary px-2.5 py-1 text-xs font-bold text-primary">
-                          {fmtDateShort(ep.air_date)}
-                        </span>
-                      </Link>
-                    );
-                  })}
                 </div>
               </section>
             )}
