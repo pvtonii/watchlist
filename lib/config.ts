@@ -137,6 +137,16 @@ function uniqueProviderNames(providers: { provider_name: string }[]): string[] {
   return Array.from(seen.values());
 }
 
+/**
+ * Free-to-watch providers (ad-supported, e.g. Tubi, Pluto TV) in our region —
+ * distinct from `flatrate`, which still needs a paid subscription.
+ */
+export function freeWatchProviders(movie: MovieDetails): string[] {
+  const providers = movie.watch_providers?.results?.[AVAILABILITY_REGION];
+  const freeProviders = [...(providers?.free ?? []), ...(providers?.ads ?? [])];
+  return uniqueProviderNames(freeProviders);
+}
+
 export type MovieAvailability =
   | { kind: "upcoming"; label: string }
   | { kind: "theaters"; label: string }

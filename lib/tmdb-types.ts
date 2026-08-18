@@ -41,6 +41,8 @@ export interface WatchProvidersResponse {
     {
       link: string;
       flatrate?: WatchProviderEntry[];
+      free?: WatchProviderEntry[];
+      ads?: WatchProviderEntry[];
       rent?: WatchProviderEntry[];
       buy?: WatchProviderEntry[];
     }

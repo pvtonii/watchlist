@@ -15,6 +15,7 @@ import {
   useWatchedEpisodes,
   useTmdb,
   useTvDetailsMany,
+  useMovieDetailsMany,
   watchedCountByShow,
   lastWatchedByShow,
 } from "@/lib/hooks";
@@ -23,6 +24,7 @@ import {
   regularEpisodeTotal,
   showProgressColor,
   tmdbPoster,
+  freeWatchProviders,
 } from "@/lib/config";
 import { fmtDate, fmtDateShort, seasonEpisodeLabel } from "@/lib/format";
 import type { TvDetails, UpcomingMoviesResponse } from "@/lib/tmdb-types";
@@ -165,6 +167,16 @@ export default function HomePage() {
   const wantToWatchMovies = (library ?? [])
     .filter((i) => i.media_type === "movie" && i.status === "watchlist")
     .sort((a, b) => (a.release_date ?? "").localeCompare(b.release_date ?? ""));
+
+  const wantToWatchDetailQueries = useMovieDetailsMany(
+    wantToWatchMovies.map((i) => i.tmdb_id)
+  );
+  const freeProvidersByMovieId = new Map<number, string>();
+  wantToWatchDetailQueries.forEach((q) => {
+    if (!q.data) return;
+    const [firstFreeProvider] = freeWatchProviders(q.data);
+    if (firstFreeProvider) freeProvidersByMovieId.set(q.data.id, firstFreeProvider);
+  });
 
   const movieIdsInLibrary = useMemo(
     () =>
@@ -372,6 +384,7 @@ export default function HomePage() {
                       title={item.title}
                       posterPath={item.poster_path}
                       sub={fmtDate(item.release_date)}
+                      freeLabel={freeProvidersByMovieId.get(item.tmdb_id)}
                     />
                   ))}
                 </div>

@@ -15,6 +15,7 @@ export default function PosterCard({
   width,
   inLibrary,
   rating,
+  freeLabel,
 }: {
   id: number;
   mediaType: MediaType;
@@ -27,6 +28,8 @@ export default function PosterCard({
   inLibrary?: boolean;
   /** TMDB vote_average (0-10) — shown as a community rating badge. */
   rating?: number;
+  /** Name of a free (ad-supported) provider, e.g. "Tubi" — shown as a badge. */
+  freeLabel?: string;
 }) {
   const poster = tmdbPoster(posterPath);
 
@@ -64,6 +67,14 @@ export default function PosterCard({
             <span className="text-[10px] font-bold leading-none">
               {rating.toFixed(1)}
             </span>
+          </div>
+        )}
+        {freeLabel && (
+          <div
+            title={`Free on ${freeLabel}`}
+            className="absolute bottom-1.5 right-1.5 rounded-full bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white shadow"
+          >
+            Free
           </div>
         )}
       </div>
