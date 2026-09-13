@@ -15,7 +15,7 @@ import {
   watchedCountByShow,
   watchedDateByEpisode,
 } from "@/lib/hooks";
-import { fmtDateShort, fmtDateTime } from "@/lib/format";
+import { fmtDate, fmtDateTime } from "@/lib/format";
 import { deriveTvLibraryStatus } from "@/lib/config";
 import type { SeasonDetails, TvDetails } from "@/lib/tmdb-types";
 
@@ -164,7 +164,7 @@ export default function SeasonPage({
                         {ep.episode_number}. {ep.name}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {fmtDateShort(ep.air_date)}
+                        {fmtDate(ep.air_date)}
                         {ep.runtime ? ` · ${ep.runtime} min` : ""}
                         {unaired ? " · not aired yet" : ""}
                       </p>

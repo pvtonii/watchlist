@@ -240,7 +240,15 @@ export default function TvPage({
                       className="flex items-center gap-3 rounded-xl bg-card p-3"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold">{season.name}</p>
+                        <p className="text-sm font-semibold">
+                          {season.name}
+                          {season.air_date && (
+                            <span className="font-normal text-muted-foreground">
+                              {" "}
+                              · {season.air_date.slice(0, 4)}
+                            </span>
+                          )}
+                        </p>
                         <p className="mb-1.5 text-xs text-muted-foreground">
                           {seen}/{season.episode_count} watched
                         </p>
