@@ -39,10 +39,6 @@ Abra http://localhost:3000 → crie uma conta → use.
 2. Em [vercel.com](https://vercel.com): **Add New Project** → importe o repo.
 3. Em **Environment Variables**, adicione as 4 variáveis do `.env.local`.
 4. Deploy. A cada `git push` na `main`, a Vercel publica sozinha.
-5. **Project Settings → Deployment Protection** → desligue para **Production**
-   (senão o GitHub Actions do keepalive, passo 6, não consegue acessar
-   `/api/keepalive` — cai numa tela de login da Vercel). O app continua
-   protegido pelo login do Supabase Auth mesmo assim.
 
 ### 5. Instalar no iPhone
 1. Abra a URL do app no **Safari**.
