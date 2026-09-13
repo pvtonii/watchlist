@@ -11,7 +11,7 @@ jobs:
     steps:
       - name: Ping keepalive
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://watchlist-pv.vercel.app/api/keepalive)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://watchlist-three-alpha.vercel.app/api/keepalive)
           echo "Status: $STATUS"
           if [ "$STATUS" != "200" ]; then
             echo "Keepalive falhou com status $STATUS"

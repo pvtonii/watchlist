@@ -49,11 +49,10 @@ Abra http://localhost:3000 → crie uma conta → use.
 
 ### 6. Keepalive (Supabase não pausa)
 O Supabase free pausa o projeto depois de ~1 semana sem atividade.
-`.github/workflows/keepalive.yml` chama `/api/keepalive` todo dia às 10:00 UTC,
-que grava a hora atual numa linha fixa da tabela `keepalive` (ver
-`supabase/schema.sql`) — escrita real, sem secrets no GitHub.
-Edite a URL dentro do workflow pra apontar pro domínio de produção real
-(ex. `watchlist-pv.vercel.app`, sem o hash de deployment).
+`.github/workflows/keepalive.yml` chama `https://watchlist-three-alpha.vercel.app/api/keepalive`
+todo dia às 10:00 UTC, que grava a hora atual numa linha fixa da tabela
+`keepalive` (ver `supabase/schema.sql`) — escrita real, sem secrets no GitHub.
+Se o domínio de produção mudar, atualize a URL dentro do workflow.
 
 ## Versionamento
 
