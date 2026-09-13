@@ -1,0 +1,19 @@
+name: Supabase Keepalive
+
+on:
+  schedule:
+    - cron: '0 10 * * *'  # todo dia às 10:00 UTC
+  workflow_dispatch:       # permite rodar manualmente também
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping keepalive
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://watchlist-pv.vercel.app/api/keepalive)
+          echo "Status: $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "Keepalive falhou com status $STATUS"
+            exit 1
+          fi

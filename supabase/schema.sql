@@ -64,3 +64,17 @@ create policy "own watched episodes" on public.watched_episodes
   for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+-- ============================================================
+-- Keepalive: linha única que /api/keepalive atualiza todo dia (via cron no
+-- GitHub Actions) só pra gerar escrita real no banco e o projeto não pausar
+-- por inatividade no plano free do Supabase. RLS fica ligada sem nenhuma
+-- policy — só a service_role (usada no route, nunca exposta ao client)
+-- consegue ler/escrever aqui.
+-- ============================================================
+create table if not exists public.keepalive (
+  id        integer primary key default 1,
+  pinged_at timestamptz not null default now()
+);
+
+alter table public.keepalive enable row level security;

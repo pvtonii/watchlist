@@ -21,9 +21,10 @@ watchlist e veja próximos episódios/lançamentos na Home. Multiusuário
 Edite `.env.local` (já criado a partir de `.env.example`):
 
 ```
-NEXT_PUBLIC_SUPABASE_URL=...      # do passo 1.4
-NEXT_PUBLIC_SUPABASE_ANON_KEY=... # do passo 1.4
-TMDB_API_KEY=...                  # sua key do TMDB (v3 key OU v4 token, tanto faz)
+NEXT_PUBLIC_SUPABASE_URL=...         # do passo 1.4
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...    # do passo 1.4
+SUPABASE_SERVICE_ROLE_KEY=...        # Project Settings → API → service_role (secret!)
+TMDB_API_KEY=...                     # sua key do TMDB (v3 key OU v4 token, tanto faz)
 ```
 
 ### 3. Rodar local
@@ -36,8 +37,12 @@ Abra http://localhost:3000 → crie uma conta → use.
 ### 4. Deploy (Vercel)
 1. Crie um repositório no GitHub e faça push.
 2. Em [vercel.com](https://vercel.com): **Add New Project** → importe o repo.
-3. Em **Environment Variables**, adicione as 3 variáveis do `.env.local`.
+3. Em **Environment Variables**, adicione as 4 variáveis do `.env.local`.
 4. Deploy. A cada `git push` na `main`, a Vercel publica sozinha.
+5. **Project Settings → Deployment Protection** → desligue para **Production**
+   (senão o GitHub Actions do keepalive, passo 6, não consegue acessar
+   `/api/keepalive` — cai numa tela de login da Vercel). O app continua
+   protegido pelo login do Supabase Auth mesmo assim.
 
 ### 5. Instalar no iPhone
 1. Abra a URL do app no **Safari**.
@@ -45,6 +50,14 @@ Abra http://localhost:3000 → crie uma conta → use.
 3. Após cada atualização de layout: remover o atalho → Safari → refresh
    forçado → adicionar de novo (cache do iOS é agressivo). Dentro do app,
    o botão **Update App** (Profile) também força a versão nova.
+
+### 6. Keepalive (Supabase não pausa)
+O Supabase free pausa o projeto depois de ~1 semana sem atividade.
+`.github/workflows/keepalive.yml` chama `/api/keepalive` todo dia às 10:00 UTC,
+que grava a hora atual numa linha fixa da tabela `keepalive` (ver
+`supabase/schema.sql`) — escrita real, sem secrets no GitHub.
+Edite a URL dentro do workflow pra apontar pro domínio de produção real
+(ex. `watchlist-pv.vercel.app`, sem o hash de deployment).
 
 ## Versionamento
 
