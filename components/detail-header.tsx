@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import { Film } from "lucide-react";
-import { tmdbPoster } from "@/lib/config";
+import ImageLightbox from "@/components/image-lightbox";
+import { tmdbOriginal, tmdbPoster } from "@/lib/config";
 
 export default function DetailHeader({
   title,
@@ -16,7 +17,11 @@ export default function DetailHeader({
   const poster = tmdbPoster(posterPath);
   return (
     <div className="flex gap-4">
-      <div className="relative aspect-[2/3] w-28 shrink-0 overflow-hidden rounded-xl bg-secondary">
+      <ImageLightbox
+        src={tmdbOriginal(posterPath)}
+        alt={title}
+        className="relative aspect-[2/3] w-28 shrink-0 overflow-hidden rounded-xl bg-secondary"
+      >
         {poster ? (
           <Image
             src={poster}
@@ -31,7 +36,7 @@ export default function DetailHeader({
             <Film size={28} />
           </div>
         )}
-      </div>
+      </ImageLightbox>
       <div className="min-w-0 flex-1 self-center">
         <h1 className="text-xl leading-tight font-extrabold">{title}</h1>
         {lines.map((line, i) => (

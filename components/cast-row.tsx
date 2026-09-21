@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import { User } from "lucide-react";
-import { tmdbProfile } from "@/lib/config";
+import ImageLightbox from "@/components/image-lightbox";
+import { tmdbOriginal, tmdbProfile } from "@/lib/config";
 import type { CastMember } from "@/lib/tmdb-types";
 
 export default function CastRow({ cast }: { cast: CastMember[] }) {
@@ -15,7 +16,11 @@ export default function CastRow({ cast }: { cast: CastMember[] }) {
           const photo = tmdbProfile(person.profile_path);
           return (
             <div key={person.id} className="w-[76px] shrink-0 text-center">
-              <div className="relative mx-auto h-[64px] w-[64px] overflow-hidden rounded-full bg-secondary">
+              <ImageLightbox
+                src={tmdbOriginal(person.profile_path)}
+                alt={person.name}
+                className="relative mx-auto block h-[64px] w-[64px] overflow-hidden rounded-full bg-secondary"
+              >
                 {photo ? (
                   <Image
                     src={photo}
@@ -29,7 +34,7 @@ export default function CastRow({ cast }: { cast: CastMember[] }) {
                     <User size={22} />
                   </div>
                 )}
-              </div>
+              </ImageLightbox>
               <p className="mt-1.5 line-clamp-2 text-[11px] leading-tight font-semibold">
                 {person.name}
               </p>

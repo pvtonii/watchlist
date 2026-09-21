@@ -8,8 +8,8 @@ import type { MovieDetails, TvDetails } from "./tmdb-types";
 import { fmtDate } from "./format";
 
 export const APP_NAME = "WatchList";
-export const APP_VERSION = "1.18.3";
-export const APP_RELEASE_DATE = "2026-07-10";
+export const APP_VERSION = "1.19.0";
+export const APP_RELEASE_DATE = "2026-09-21";
 
 /** Must match the topbar/background color in globals.css (--bg-deep). */
 export const THEME_COLOR = "#0c111b";
@@ -205,6 +205,11 @@ export function tmdbPoster(path: string | null, size: "w185" | "w342" | "w500" =
 
 export function tmdbBackdrop(path: string | null, size: "w780" | "w1280" = "w780") {
   return path ? `${TMDB_IMG_BASE}/${size}${path}` : null;
+}
+
+/** Full-resolution original (no resize) — used by the tap-to-zoom lightbox. */
+export function tmdbOriginal(path: string | null) {
+  return path ? `${TMDB_IMG_BASE}/original${path}` : null;
 }
 
 export function tmdbProfile(path: string | null) {
