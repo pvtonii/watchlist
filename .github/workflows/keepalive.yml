@@ -2,7 +2,7 @@ name: Supabase Keepalive
 
 on:
   schedule:
-    - cron: '0 10 * * *'  # todo dia às 10:00 UTC
+    - cron: '0 */6 * * *'  # a cada 6h (Supabase free pausa se achar pouca atividade)
   workflow_dispatch:       # permite rodar manualmente também
 
 jobs:

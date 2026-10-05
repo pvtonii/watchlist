@@ -19,5 +19,17 @@ export async function GET() {
     return Response.json({ ok: false, error: error.message }, { status: 500 });
   }
 
-  return Response.json({ ok: true, ts: new Date().toISOString() });
+  // A read on top of the write — one tiny upsert a day alone wasn't enough
+  // to count as "sufficient activity" for Supabase's pause scan.
+  const { data, error: readError } = await supabase
+    .from("keepalive")
+    .select("pinged_at")
+    .eq("id", 1)
+    .single();
+
+  if (readError) {
+    return Response.json({ ok: false, error: readError.message }, { status: 500 });
+  }
+
+  return Response.json({ ok: true, ts: data.pinged_at });
 }
