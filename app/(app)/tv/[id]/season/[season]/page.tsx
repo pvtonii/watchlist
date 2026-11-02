@@ -88,6 +88,25 @@ export default function SeasonPage({
   function handleToggle(episodeNumber: number) {
     const watchedNow = watchedSet.has(episodeNumber);
     const newWatched = !watchedNow;
+
+    // Marking an episode watched also marks every earlier unwatched episode
+    // of this same season. Unmarking only touches the tapped episode.
+    if (newWatched) {
+      const toMark = episodes
+        .map((e) => e.episode_number)
+        .filter((n) => n <= episodeNumber && !watchedSet.has(n));
+      if (toMark.length > 1) {
+        markSeason.mutate({
+          tmdb_show_id: showId,
+          season_number: seasonNumber,
+          episode_numbers: toMark,
+          watched: true,
+        });
+        syncShowStatus(showWatchedCount + toMark.length);
+        return;
+      }
+    }
+
     toggleEpisode.mutate({
       tmdb_show_id: showId,
       season_number: seasonNumber,
@@ -147,7 +166,7 @@ export default function SeasonPage({
                   >
                     <button
                       onClick={() => handleToggle(ep.episode_number)}
-                      disabled={toggleEpisode.isPending}
+                      disabled={toggleEpisode.isPending || markSeason.isPending}
                       aria-label={
                         isWatched ? "Mark as unwatched" : "Mark as watched"
                       }
